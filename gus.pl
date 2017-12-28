@@ -14,10 +14,7 @@ use warnings;
 
 binmode( STDOUT, ":utf8" );
 
-use FindBin;
-use lib "$FindBin::RealBin";
-
-use Data::Dumper;
+#use Data::Dumper;
 use Mojo::Discord;
 use IO::Async::Loop::Mojo;
 use IO::Async::FileStream;
