@@ -27,6 +27,7 @@ use IO::Interface::Simple;
 use Term::Encoding qw(term_encoding);
 
 my $self;
+my $lastmap = '';
 
 my $config = {
    mainchan => "368487578028081154",
@@ -147,8 +148,9 @@ my $filestream = IO::Async::FileStream->new(
              };
 
              $discord->send_message( $$config{'chatlinkchan'}, $message );
+             $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
 
-             $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists( $$maps{$data[1]} ) );
+             $lastmap = $data[1];
           }
           elsif ( $line =~ /^map (.+)$/ )
           {
