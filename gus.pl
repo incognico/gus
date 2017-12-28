@@ -116,7 +116,7 @@ my $filestream = IO::Async::FileStream->new(
 
          chomp( $line );
 
-         if ( $line =~ /^status .+ [0-9]+$/ )
+         if ( $line =~ /^status .+ [0-9][0-9]?$/ )
          {
             say localtime(time) . " -> status: $line";
 
@@ -150,13 +150,9 @@ my $filestream = IO::Async::FileStream->new(
              $discord->send_message( $$config{'chatlinkchan'}, $message );
              $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
 
-             $lastmap = $data[1];
-          }
-          elsif ( $line =~ /^map (.+)$/ )
-          {
-             say localtime(time) . " -> $line";
+             $discord->status_update( { 'game' => " $data[1] @ twlz Sven Co-op" } );
 
-             $discord->status_update( { 'game' => "$1 @ twlz Sven Co-op" } );
+             $lastmap = $data[1];
           }
           else
           {
