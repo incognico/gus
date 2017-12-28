@@ -121,6 +121,7 @@ my $filestream = IO::Async::FileStream->new(
          if ( $line =~ /^status .+ [0-9]+$/ )
          {
             say localtime(time) . " -> status: $line";
+
             my @data = split( ' ', $line );
 
             my $embed = {
@@ -154,14 +155,18 @@ my $filestream = IO::Async::FileStream->new(
           }
           elsif ( $line =~ /^map (.+)$/ )
           {
+             say localtime(time) . " -> $line";
+
              $discord->status_update( { 'game' => "$1 @ twlz Sven Co-op" } );
           }
           else
           {
              say localtime(time) . " -> $line";
+
              $line =~ s/`//g;
              $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
              $line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
+
              $discord->send_message( $$config{'chatlinkchan'}, $line );
           }
       }
@@ -267,7 +272,7 @@ sub discord_on_message_create
                 'fields' => [
                    {
                       'name'   => 'Name',
-                      'value'  => "[".$r->[2]."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")",
+                      'value'  => "**[".$r->[2]."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
                       'inline' => \1,
                    },
                    {
