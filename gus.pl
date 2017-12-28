@@ -130,7 +130,7 @@ my $filestream = IO::Async::FileStream->new(
                 'fields' => [
                 {
                    'name'   => 'Map',
-                   'value'  => $data[1],
+                   'value'  => "$data[1] ",
                    'inline' => \1,
                 },
                 {
