@@ -121,6 +121,8 @@ my $filestream = IO::Async::FileStream->new(
             say localtime(time) . " -> status: $line";
 
             my @data = split( ' ', $line );
+            
+            return if ( $data[2] eq 0 );
 
             my $embed = {
                'color' => '15844367',
@@ -229,7 +231,7 @@ sub discord_on_message_create
          my $param = $1;
          my ($stmt, @bind, $r);
 
-         if ( $param =~ /^STEAM_(0:[0-9]:[0-9]+)$/ )
+         if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
          {
             $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY score DESC LIMIT 1";
             @bind = ( "$1" );
@@ -277,7 +279,7 @@ sub discord_on_message_create
                    },
                    {
                       'name'   => 'Time played on TWLZ',
-                      'value'  => duration( $r->[14]*30 ),
+                      'value'  => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ),
                       'inline' => \1,
                    },
                    {
