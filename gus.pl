@@ -121,7 +121,9 @@ my $filestream = IO::Async::FileStream->new(
             say localtime(time) . " -> status: $line";
 
             my @data = split( ' ', $line );
-            
+
+            $discord->status_update( { 'game' => " $data[1] @ twlz Sven Co-op" } );
+
             return if ( $data[2] eq 0 );
 
             my $embed = {
@@ -144,28 +146,26 @@ my $filestream = IO::Async::FileStream->new(
                 ],
             };
 
-             my $message = {
-                'content' => '',
-                'embed' => $embed,
-             };
+            my $message = {
+               'content' => '',
+               'embed' => $embed,
+            };
 
-             $discord->send_message( $$config{'chatlinkchan'}, $message );
-             $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
+            $discord->send_message( $$config{'chatlinkchan'}, $message );
+            $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
 
-             $discord->status_update( { 'game' => " $data[1] @ twlz Sven Co-op" } );
+            $lastmap = $data[1];
+         }
+         else
+         {
+            say localtime(time) . " -> $line";
 
-             $lastmap = $data[1];
-          }
-          else
-          {
-             say localtime(time) . " -> $line";
+            $line =~ s/`//g;
+            $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
+            $line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
 
-             $line =~ s/`//g;
-             $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
-             $line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
-
-             $discord->send_message( $$config{'chatlinkchan'}, $line );
-          }
+            $discord->send_message( $$config{'chatlinkchan'}, $line );
+         }
       }
       return 0;
    }
