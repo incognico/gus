@@ -39,6 +39,7 @@ my $config = {
    db => "$ENV{HOME}/scstats/scstats.db",
    steamapikey => "",
    steamapiurl => "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=",
+   steamapiurl2 => "http://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=",
    serverport => "27210",
 
    discord => {
@@ -122,6 +123,10 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
+            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
+
+            return if ( $data[2] eq 0 );
+
             my $embed = {
                'color' => '15844367',
                'provider' => {
@@ -142,28 +147,26 @@ my $filestream = IO::Async::FileStream->new(
                 ],
             };
 
-             my $message = {
-                'content' => '',
-                'embed' => $embed,
-             };
+            my $message = {
+               'content' => '',
+               'embed' => $embed,
+            };
 
-             $discord->send_message( $$config{'chatlinkchan'}, $message );
-             $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
+            $discord->send_message( $$config{'chatlinkchan'}, $message );
+            $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
 
-             $discord->status_update( { 'game' => " $data[1] @ twlz Sven Co-op" } );
+            $lastmap = $data[1];
+         }
+         else
+         {
+            say localtime(time) . " -> $line";
 
-             $lastmap = $data[1];
-          }
-          else
-          {
-             say localtime(time) . " -> $line";
+            $line =~ s/`//g;
+            $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
+            $line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
 
-             $line =~ s/`//g;
-             $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
-             $line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
-
-             $discord->send_message( $$config{'chatlinkchan'}, $line );
-          }
+            $discord->send_message( $$config{'chatlinkchan'}, $line );
+         }
       }
       return 0;
    }
@@ -229,7 +232,7 @@ sub discord_on_message_create
          my $param = $1;
          my ($stmt, @bind, $r);
 
-         if ( $param =~ /^STEAM_(0:[0-9]:[0-9]+)$/ )
+         if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
          {
             $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY score DESC LIMIT 1";
             @bind = ( "$1" );
@@ -249,61 +252,79 @@ sub discord_on_message_create
 
             unless ( defined $content )
             {
-               $discord->send_message( $channel, "`Couldn't query Steam API`" );
+               $discord->send_message( $channel, "`Couldn't query Steam Player API`" );
                return;
             }
  
             my $result = decode_json( $content );
 
-             my $embed = {
-                'color' => '15844367',
-                'provider' => {
-                   'name' => 'twlz',
-                   'url' => 'http://twlz.lifeisabug.com',
+            (my $url2 = $$config{'steamapiurl2'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
+            my $content2 = get( $url2 );
+
+            unless ( defined $content2 )
+            {
+               $discord->send_message( $channel, "`Couldn't query Steam Bans API`" );
+               return;
+            }
+
+            my $result2 = decode_json( $content2 );
+
+            my $embed = {
+               'color' => '15844367',
+               'provider' => {
+                  'name' => 'twlz',
+                  'url' => 'http://twlz.lifeisabug.com',
                 },
                 'thumbnail' => {
                    'url' => $$result{'response'}{'players'}->[0]{avatarfull},
                 },
                 'fields' => [
-                   {
-                      'name'   => 'Name',
-                      'value'  => "**[".$r->[2]."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
-                      'inline' => \1,
-                   },
-                   {
-                      'name'   => 'Country',
-                      'value'  => ":flag_".lc($r->[11]).":",
-                      'inline' => \1,
-                   },
-                   {
-                      'name'   => 'Time played on TWLZ',
-                      'value'  => duration( $r->[14]*30 ),
-                      'inline' => \1,
-                   },
-                   {
-                      'name'   => 'Last Seen',
-                      'value'  => defined $r->[16] ? $r->[16] : 'Unknown',
-                      'inline' => \1,
-                   },
-                   {
-                      'name'   => 'Score',
-                      'value'  => int($r->[4]),
-                      'inline' => \1,
-                   },
-                   {
-                      'name'   => 'Deaths',
-                      'value'  => $r->[6],
-                      'inline' => \1,
-                   },
-                ],
-             };
+                {
+                   'name'   => 'Name',
+                   'value'  => "**[".$r->[2]."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
+                   'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Country',
+                    'value'  => ":flag_".lc($r->[11]).":",
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Time on TWLZ',
+                    'value'  => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Last Seen',
+                    'value'  => defined $r->[16] ? $r->[16] : 'Unknown',
+                    'inline' => \1,
+                 },
+                 ],
+            };
 
-             my $message = {
-                'content' => '',
-                'embed' => $embed,
-             };
+            if ( defined $r->[16] )
+            {
+               push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
+               push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
+            }
 
-             $discord->send_message( $channel, $message );
+            if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 )
+            {
+               push @{$$embed{'fields'}}, { 'name' => 'VAC Banned', 'value' => "Yes ($$result2{'players'}->[0]{'NumberOfVACBans'})", 'inline' => \1, };
+               push @{$$embed{'fields'}}, { 'name' => 'Days since last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60), 'inline' => \1, };
+            }
+
+            if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' )
+            {
+               push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, };
+            }
+
+            my $message = {
+               'content' => '',
+               'embed' => $embed,
+            };
+
+            $discord->send_message( $channel, $message );
          }
          else
          {
