@@ -312,7 +312,7 @@ sub discord_on_message_create
                  ],
             };
 
-            if ( defined $r->[16] )
+            if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
             {
                push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
                push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
