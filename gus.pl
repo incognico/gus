@@ -158,11 +158,12 @@ my $filestream = IO::Async::FileStream->new(
                {
                   $discord->send_message( $_, '<:crash:395223059562233856>' );
                }
-               return;
             }
-
-            $discord->send_message( $$config{'chatlinkchan'}, $message );
-            $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
+            else
+            {
+               $discord->send_message( $$config{'chatlinkchan'}, $message );
+               $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
+            }
 
             $lastmap = $data[1];
          }
