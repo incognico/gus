@@ -123,9 +123,9 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
+            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } ) unless ( $data[1] eq '_server_start' );
 
-            return if ( $data[2] eq 0 );
+            return if ( $data[2] eq '0' );
 
             my $embed = {
                'color' => '15844367',
@@ -151,6 +151,15 @@ my $filestream = IO::Async::FileStream->new(
                'content' => '',
                'embed' => $embed,
             };
+            
+            if ( $data[1] eq '_server_start' )
+            {
+               for ( [ $$config{'chatlinkchan'}, $$config{'fancystatuschan'} ] )
+               {
+                  $discord->send_message( $_, '<:crash:395223059562233856>' );
+               }
+               return;
+            }
 
             $discord->send_message( $$config{'chatlinkchan'}, $message );
             $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
