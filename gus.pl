@@ -321,7 +321,7 @@ sub discord_on_message_create
             if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 )
             {
                push @{$$embed{'fields'}}, { 'name' => 'VAC Banned', 'value' => "Yes ($$result2{'players'}->[0]{'NumberOfVACBans'})", 'inline' => \1, };
-               push @{$$embed{'fields'}}, { 'name' => 'Days since last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60), 'inline' => \1, };
+               push @{$$embed{'fields'}}, { 'name' => 'Last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60).' ago', 'inline' => \1, };
             }
 
             if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' )
