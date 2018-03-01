@@ -366,6 +366,15 @@ sub discord_on_message_create
             $discord->send_message( $channel, "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**" );
          }
       }
+      elsif ( $channel eq $$config{'mainchan'} && $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
+      {
+         my (@x, $y);
+
+         $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
+         $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
+
+         $discord->send_message( $channel, "`@x`" );
+      }
    }
 }
 
