@@ -532,6 +532,40 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, $message );
       }
+      elsif ( $channel eq $$config{'mainchan'} && $msg =~ /^!ud (.+)/ )
+      {
+         my $input    = $1;
+         my $query    = uri_escape("$input");
+         my $response = get("http://api.urbandictionary.com/v0/define?term=$query");
+
+         if ( $response )
+         {
+            my $ud = decode_json($response);
+
+            if (defined $$ud{list}[0]{definition})
+            {
+                my $msg = '';
+
+                for (0..3)
+                {
+                   $$ud{list}[$_]{definition} =~ s/\s+/ /g;
+                   $msg .= sprintf('%d %s:: %s', $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 399) ? substr($$ud{list}[$_]{definition}, 0, 400) . '...' : $$ud{list}[$_]{definition});
+                   $msg .= "\n";
+                   last unless (defined $$ud{list}[$_+1]{definition});
+                }
+
+                $discord->send_message( $channel, "```$msg```" );
+            }
+            else
+            {
+               $discord->send_message( $channel, '`No match`' );
+            }
+         }
+         else
+         {
+            $discord->send_message( $channel, '`API error`' );
+         }
+      }
    }
 }
 
