@@ -4,13 +4,15 @@
 #
 # Based on https://github.com/vsTerminus/Goose
 #
-# Copyright 2017, Nico R. Wohlgemuth <nico@lifeisabug.com>
+# Copyright 2017-2018, Nico R. Wohlgemuth <nico@lifeisabug.com>
 
 use v5.16.0;
 
 use utf8;
 use strict;
 use warnings;
+
+no warnings 'experimental::smartmatch';
 
 binmode( STDOUT, ":utf8" );
 
@@ -25,6 +27,9 @@ use JSON;
 use Net::SRCDS::Queries;
 use IO::Interface::Simple;
 use Term::Encoding qw(term_encoding);
+use DateTime::TimeZone;
+use Geo::Coder::Google;
+use Weather::YR;
 
 my $self;
 my $lastmap = '';
@@ -41,6 +46,7 @@ my $config = {
    steamapiurl => "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=",
    steamapiurl2 => "http://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=",
    serverport => "27210",
+   gmapikey => "",
 
    discord => {
      auto_reconnect => 1,
@@ -89,6 +95,22 @@ my $maps = {
    'sc_tl_build_puzzle_fft_final' => '<:lul:370224421933285386> Build Puzzle',
 };
 
+my @winddesc = (
+   'Calm',
+   'Light air',
+   'Light breeze',
+   'Gentle breeze',
+   'Moderate breeze',
+   'Fresh breeze',
+   'Strong breeze',
+   'High wind',
+   'Gale',
+   'Strong gale',
+   'Storm',
+   'Violent storm',
+   'Hurricane'
+);
+
 ###
 
 my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
@@ -123,7 +145,19 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } ) unless ( $data[1] eq '_server_start' );
+            if ( $data[1] eq '_server_start' )
+            {
+               for ( [ $$config{'chatlinkchan'}, $$config{'fancystatuschan'} ] )
+               {
+                  $discord->send_message( $_, '<:crash:395223059562233856>' );
+               }
+
+               return;
+            }
+            else
+            {
+               $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
+            }
 
             return if ( $data[2] eq '0' );
 
@@ -152,18 +186,8 @@ my $filestream = IO::Async::FileStream->new(
                'embed' => $embed,
             };
             
-            if ( $data[1] eq '_server_start' )
-            {
-               for ( [ $$config{'chatlinkchan'}, $$config{'fancystatuschan'} ] )
-               {
-                  $discord->send_message( $_, '<:crash:395223059562233856>' );
-               }
-            }
-            else
-            {
-               $discord->send_message( $$config{'chatlinkchan'}, $message );
-               $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
-            }
+            $discord->send_message( $$config{'chatlinkchan'}, $message );
+            $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
 
             $lastmap = $data[1];
          }
@@ -171,7 +195,7 @@ my $filestream = IO::Async::FileStream->new(
          {
             say localtime(time) . " -> $line";
 
-            $line =~ s/`//g;
+            $line =~ s/`/\`/g;
             $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
             $line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
 
@@ -288,6 +312,11 @@ sub discord_on_message_create
                 'thumbnail' => {
                    'url' => $$result{'response'}{'players'}->[0]{avatarfull},
                 },
+                'image' => {
+                   'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$r->[12],$r->[13]&zoom=7&key=$$config{'gmapikey'}",
+                   'width' => 360,
+                   'height' => 80,
+                },
                 'fields' => [
                 {
                    'name'   => 'Name',
@@ -374,6 +403,134 @@ sub discord_on_message_create
          $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
 
          $discord->send_message( $channel, "`@x`" );
+      }
+      elsif ( $channel eq $$config{'mainchan'} && ( $msg =~ /^!weather (.+)/ || $msg =~ /^!w (.+)/ ) )
+      {
+         my ($loc, $lat, $lon);
+         my $alt = 0;
+
+         my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
+
+         my $input;
+         eval { $input = $geo->geocode(location => "$1") };
+
+         unless ( $input )
+         {
+            $discord->send_message( $channel, '`No matching location`' );
+            return;
+         }
+
+         $loc = $input->{formatted_address};
+         $lat = $input->{geometry}{location}{lat};
+         $lon = $input->{geometry}{location}{lng};
+
+         my $json = get( "https://maps.googleapis.com/maps/api/elevation/json?key=$$config{'gmapikey'}&locations=" . $lat . ',' . $lon );
+
+         if ($json)
+         {
+            my $elevdata;
+            eval { $elevdata = decode_json($json) };
+
+            if ( $elevdata->{status} eq 'OK' )
+            {
+               $alt = $elevdata->{results}->[0]->{elevation};
+            }
+         }
+
+         my $cc;
+         for ( @{$input->{address_components}} )
+         {
+            if ( 'country' ~~ @{$_->{types}} )
+            {
+               $cc = lc($_->{short_name});
+            }
+         }
+
+         my $fcloc;
+         eval { $fcloc = Weather::YR->new(lat => $lat, lon => $lon, msl => int($alt), tz => DateTime::TimeZone->new(name => 'Europe/Oslo'), lang => 'en') };
+
+         unless ($fcloc)
+         {
+            $discord->send_message( $channel, '`Error fetching weather data, try again later`' );
+            return;
+         }
+
+         my $fc = $fcloc->location_forecast->now;
+
+         my $beaufort   = $fc->wind_speed->beaufort;
+         my $celsius    = $fc->temperature->celsius;
+         my $cloudiness = $fc->cloudiness->percent;
+         my $fahrenheit = $fc->temperature->fahrenheit;
+         my $fog        = $fc->fog->percent;
+         my $humidity   = $fc->humidity->percent;
+         my $symbol     = $fc->precipitation->symbol->text;
+         my $symbolid   = $fc->precipitation->symbol->number;
+         my $winddir    = $fc->wind_direction->name;
+
+         my $embed = {
+            'color' => '15844367',
+            'provider' => {
+               'name' => 'yr.no',
+               'url' => 'https://www.yr.no/',
+             },
+             'thumbnail' => {
+                'url' => "https://api.met.no/weatherapi/weathericon/1.1/?symbol=$symbolid&content_type=image/png",
+                'width' => 38,
+                'height' => 38,
+             },
+             'image' => {
+                'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$lat,$lon&zoom=7&key=$$config{'gmapikey'}",
+                'width' => 360,
+                'height' => 80,
+             },
+             'footer' => {
+                'text' => "Location altitude: " . sprintf('%dm / %dft', int($alt), int($alt * 3.2808)),
+             },
+             'fields' => [
+             {
+                'name'   => ":flag_$cc: Weather for:",
+                'value'  => "**[$loc](https://www.google.com/maps/\@$lat,$lon,13z)**",
+                'inline' => \0,
+              },
+              {
+                 'name'   => 'Temperature',
+                 'value'  => sprintf('**%.1f°C** / **%.1f°F**', $celsius, $fahrenheit),
+                 'inline' => \1,
+              },
+              {
+                 'name'   => 'Symbol',
+                 'value'  => $symbol,
+                 'inline' => \1,
+              },
+              {
+                 'name'   => 'Cloudiness',
+                 'value'  => sprintf('%u%%', $cloudiness),
+                 'inline' => \1,
+              },
+              {
+                 'name'   => 'Humidity',
+                 'value'  => sprintf('%u%%', $humidity),
+                 'inline' => \1,
+              },
+              {
+                 'name'   => 'Fog',
+                 'value'  => sprintf('%u%%', $fog),
+                 'inline' => \1,
+              },
+              {
+                 'name'   => 'Wind',
+                 'value'  => sprintf('%s from %s', $winddesc[$beaufort], $winddir),
+                 'inline' => \1,
+              },
+              ],
+         };
+
+         my $message = {
+            'content' => '',
+            'embed' => $embed,
+         };
+
+         $discord->send_message( $channel, $message );
       }
    }
 }
