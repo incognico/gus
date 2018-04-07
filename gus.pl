@@ -30,6 +30,7 @@ use Term::Encoding qw(term_encoding);
 use DateTime::TimeZone;
 use Geo::Coder::Google;
 use Weather::YR;
+use URI::Escape;
 
 my $self;
 my $lastmap = '';
@@ -145,19 +146,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            if ( $data[1] eq '_server_start' )
-            {
-               for ( [ $$config{'chatlinkchan'}, $$config{'fancystatuschan'} ] )
-               {
-                  $discord->send_message( $_, '<:crash:395223059562233856>' );
-               }
-
-               return;
-            }
-            else
-            {
-               $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
-            }
+            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
 
             return if ( $data[2] eq '0' );
 
@@ -303,6 +292,18 @@ sub discord_on_message_create
 
             my $result2 = decode_json( $content2 );
 
+            my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'}, result_type => 'locality|sublocality|administrative_area_level_1|country|political');
+
+            my $input;
+            eval { $input = $geo->reverse_geocode( latlng => sprintf('%.3f,%.3f', $r->[12], $r->[13]) ) };
+
+            my $loc = 'Unknown';
+
+            if ( $input )
+            {
+               $loc = $input->{formatted_address};
+            }
+
             my $embed = {
                'color' => '15844367',
                'provider' => {
@@ -312,11 +313,14 @@ sub discord_on_message_create
                 'thumbnail' => {
                    'url' => $$result{'response'}{'players'}->[0]{avatarfull},
                 },
-                'image' => {
-                   'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$r->[12],$r->[13]&zoom=7&key=$$config{'gmapikey'}",
-                   'width' => 360,
-                   'height' => 80,
+                'footer' => {
+                   'text' => "Approximate location: $loc",
                 },
+#                'image' => {
+#                   'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$r->[12],$r->[13]&zoom=7&key=$$config{'gmapikey'}",
+#                   'width' => 360,
+#                   'height' => 80,
+#                },
                 'fields' => [
                 {
                    'name'   => 'Name',
@@ -325,7 +329,7 @@ sub discord_on_message_create
                  },
                  {
                     'name'   => 'Country',
-                    'value'  => ":flag_".lc($r->[11]).":",
+                    'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ":flag_".lc($r->[11]).":",
                     'inline' => \1,
                  },
                  {
@@ -437,12 +441,12 @@ sub discord_on_message_create
             }
          }
 
-         my $cc;
+         my $flag = 'flag_white';
          for ( @{$input->{address_components}} )
          {
             if ( 'country' ~~ @{$_->{types}} )
             {
-               $cc = lc($_->{short_name});
+               $flag = 'flag_' . lc($_->{short_name});
             }
          }
 
@@ -479,7 +483,7 @@ sub discord_on_message_create
                 'height' => 38,
              },
              'image' => {
-                'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$lat,$lon&zoom=7&key=$$config{'gmapikey'}",
+                'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$lat,$lon&zoom=8&key=$$config{'gmapikey'}",
                 'width' => 360,
                 'height' => 80,
              },
@@ -488,7 +492,7 @@ sub discord_on_message_create
              },
              'fields' => [
              {
-                'name'   => ":flag_$cc: Weather for:",
+                'name'   => $flag eq 'flag_se' ? ':gay_pride_flag:' : ":$flag:" . ' Weather for:',
                 'value'  => "**[$loc](https://www.google.com/maps/\@$lat,$lon,13z)**",
                 'inline' => \0,
               },
@@ -564,7 +568,7 @@ sub discord_on_message_create
          else
          {
             $discord->send_message( $channel, '`API error`' );
-         }
+         }     
       }
    }
 }
