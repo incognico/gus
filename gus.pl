@@ -36,7 +36,6 @@ my $self;
 my $lastmap = '';
 
 my $config = {
-   mainchan => "368487578028081154",
    chatlinkchan => "390586588897345540",
    fancystatuschan => "368487578028081154",
    adminrole => "368491069874241536",
@@ -250,7 +249,7 @@ sub discord_on_message_create
          say $tosvenfh "(DISCORD) $$author{'username'}: $msg";
          close $tosvenfh;
       }
-      elsif ( $channel eq $$config{'mainchan'} && $msg =~ /^!player (.+)/i )
+      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!player (.+)/i )
       {
          my $param = $1;
          my ($stmt, @bind, $r);
@@ -374,7 +373,7 @@ sub discord_on_message_create
              $discord->send_message( $channel, "`No results`" );
          }
       }
-      elsif ( $channel eq $$config{'mainchan'} && $msg =~ /^!status/i )
+      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!status/i )
       {
          my $if       = IO::Interface::Simple->new('lo');
          my $addr     = $if->address;
@@ -399,7 +398,7 @@ sub discord_on_message_create
             $discord->send_message( $channel, "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**" );
          }
       }
-      elsif ( $channel eq $$config{'mainchan'} && $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
+      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
       {
          my (@x, $y);
 
@@ -408,7 +407,7 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, "`@x`" );
       }
-      elsif ( $channel eq $$config{'mainchan'} && ( $msg =~ /^!weather (.+)/ || $msg =~ /^!w (.+)/ ) )
+      elsif ( $channel ne $$config{'chatlinkchan'} && ( $msg =~ /^!weather (.+)/i || $msg =~ /^!w (.+)/i ) )
       {
          my ($loc, $lat, $lon);
          my $alt = 0;
@@ -536,7 +535,7 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, $message );
       }
-      elsif ( $channel eq $$config{'mainchan'} && $msg =~ /^!ud (.+)/ )
+      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!ud (.+)/i )
       {
          my $input    = $1;
          my $query    = uri_escape("$input");
@@ -553,8 +552,7 @@ sub discord_on_message_create
                 for (0..3)
                 {
                    $$ud{list}[$_]{definition} =~ s/\s+/ /g;
-                   $msg .= sprintf('%d %s:: %s', $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 399) ? substr($$ud{list}[$_]{definition}, 0, 400) . '...' : $$ud{list}[$_]{definition});
-                   $msg .= "\n";
+                   $msg .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 399) ? substr($$ud{list}[$_]{definition}, 0, 400) . '...' : $$ud{list}[$_]{definition});
                    last unless (defined $$ud{list}[$_+1]{definition});
                 }
 
@@ -568,7 +566,7 @@ sub discord_on_message_create
          else
          {
             $discord->send_message( $channel, '`API error`' );
-         }     
+         }
       }
    }
 }
