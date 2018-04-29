@@ -491,7 +491,7 @@ sub discord_on_message_create
              },
              'fields' => [
              {
-                'name'   => $flag eq 'flag_se' ? ':gay_pride_flag:' : ":$flag:" . ' Weather for:',
+                'name'   => ( $flag eq 'flag_se' ? ':gay_pride_flag:' : ":$flag:" ) . ' Weather for:',
                 'value'  => "**[$loc](https://www.google.com/maps/\@$lat,$lon,13z)**",
                 'inline' => \0,
               },
