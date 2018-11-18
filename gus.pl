@@ -91,15 +91,9 @@ my $maps = {
    'th_ep1_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
-<<<<<<< HEAD
    'th_escape' => '<:ayaya:510534352262791179> Woohoo, They Hunger: Escape',
    'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
    'rust_islands_b6' => '<:pog:458682189471809536> R U S T',
-=======
-   'th_escape' => '<:AYAYA:458341819546337297> Woohoo, They Hunger: Escape',
-   'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
-   'rust_island_b5' => '<:pog:458682189471809536> R U S T',
->>>>>>> f1e64a1280be720737da93f204b7f5566a80cd32
    'sc_tl_build_puzzle_fft_final' => '<:omegalul:458685801706815489> Build Puzzle',
 };
 
@@ -402,7 +396,7 @@ sub discord_on_message_create
          }
          else
          {
-            $discord->send_message( $channel, "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**" . $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ ? "difficulty: $1" : '' );
+            $discord->send_message( $channel, "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**" . $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ ? "  Difficulty: **$1**" : '' );
          }
       }
       elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
@@ -662,10 +656,10 @@ sub discord_on_message_create
 
       #main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
       }
-      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!xon$/i )
-      {
-         $discord->send_message( $channel, '<:xon:458355320364859393> IPv4: `connect 148.251.69.59` IPv6: `connect 2a01:4f8:202:3328::2`' );
-      }
+#      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!xon$/i )
+#      {
+#         $discord->send_message( $channel, '<:xon:458355320364859393> IPv4: `connect 148.251.69.59` IPv6: `connect 2a01:4f8:202:3328::2`' );
+#      }
    }
 }
 
