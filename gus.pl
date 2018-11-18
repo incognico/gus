@@ -396,7 +396,11 @@ sub discord_on_message_create
          }
          else
          {
-            $discord->send_message( $channel, "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**" . $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ ? "  Difficulty: **$1**" : '' );
+            my $diff = '';
+            $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
+            my $msg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**$diff";
+
+            $discord->send_message( $channel, $msg );
          }
       }
       elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
