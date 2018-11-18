@@ -91,9 +91,15 @@ my $maps = {
    'th_ep1_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
+<<<<<<< HEAD
    'th_escape' => '<:ayaya:510534352262791179> Woohoo, They Hunger: Escape',
    'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
    'rust_islands_b6' => '<:pog:458682189471809536> R U S T',
+=======
+   'th_escape' => '<:AYAYA:458341819546337297> Woohoo, They Hunger: Escape',
+   'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
+   'rust_island_b5' => '<:pog:458682189471809536> R U S T',
+>>>>>>> f1e64a1280be720737da93f204b7f5566a80cd32
    'sc_tl_build_puzzle_fft_final' => '<:omegalul:458685801706815489> Build Puzzle',
 };
 
