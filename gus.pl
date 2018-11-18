@@ -51,9 +51,9 @@ my $config = {
 
    discord => {
      auto_reconnect => 1,
-     client_id => "393059875871260672",
+     client_id => "",
      name => "Gus",
-     owner_id => "373912992758235148",
+     owner_id => "",
 #     game => "Sven Co-op @ twlz",
      token => "",
      verbose => 0,
@@ -76,9 +76,9 @@ my $discord = Mojo::Discord->new(
 );
 
 my $maps = {
-   'hl_c01_a1' => '<:sven:459617478365020203> Half-Life',
-   'of1a1' => '<:sven:459617478365020203> Opposing Force',
-   'ba_security1' => '<:sven:459617478365020203> Blue Shift',
+   'hl_c01_a1' => '<:flower:458608402549964814> Half-Life',
+   'of1a1' => '<:flower:458608402549964814> Opposing Force',
+   'ba_security1' => '<:flower:458608402549964814> Blue Shift',
    'escape_series_1a' => '<:sven:459617478365020203> Escape Series: Part 1',
    'escape_series_2a' => '<:sven:459617478365020203> Escape Series: Part 2',
    'escape_series_3a' => '<:sven:459617478365020203> Escape Series: Part 3',
@@ -88,15 +88,13 @@ my $maps = {
    'po_c1m1' => '<:sven:459617478365020203> Poke 646',
    'po_c1m1' => '<:sven:459617478365020203> Poke 646: Vendetta',
    'rl02' => '<:sven:459617478365020203> Residual Life',
-   'th_ep1_00' => '<:sven:459617478365020203> They Hunger: Episode 1',
-   'th_ep2_00' => '<:sven:459617478365020203> They Hunger: Episode 2',
-   'th_ep3_00' => '<:sven:459617478365020203> They Hunger: Episode 3',
-   'th_escape' => '<:flower:458608402549964814> Woohoo, They Hunger: Escape',
-   'road_to_shinnen' => '<:owo:459363994403209216> Oh god, oh no, Road to Shinnen',
-   'rust_island_b5' => '<:pog:458682189471809536> R U S T',
-   'rust_island_b6' => '<:pog:458682189471809536> R U S T',
-   'sc_tl_build_puzzle_fft_final' => '<:lul:458685800725610516> Build Puzzle',
-   'shl0' => ':candy: Sweet Half-Life', 
+   'th_ep1_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
+   'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
+   'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
+   'th_escape' => '<:ayaya:510534352262791179> Woohoo, They Hunger: Escape',
+   'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
+   'rust_islands_b6' => '<:pog:458682189471809536> R U S T',
+   'sc_tl_build_puzzle_fft_final' => '<:omegalul:458685801706815489> Build Puzzle',
 };
 
 my @winddesc = (
@@ -244,7 +242,7 @@ sub discord_on_message_create
       {
          $msg =~ s/`//g;
          $msg =~ s/%/%%/g;
-         $msg =~ s/<@(\d+)>/\@$self->i{'users'}->{$1}->{'username'}/g; # user/nick
+         $msg =~ s/<@(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g; # user/nick
          $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
          $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
          $msg =~ s/<(:.+:)\d+>/$1/g; # emoji
@@ -302,7 +300,7 @@ sub discord_on_message_create
             my $input;
             eval { $input = $geo->reverse_geocode( latlng => sprintf('%.3f,%.3f', $r->[12], $r->[13]) ) };
 
-            my $loc = 'Unknown';
+            ´my $loc = 'Unknown';
 
             if ( $input )
             {
@@ -398,7 +396,7 @@ sub discord_on_message_create
          }
          else
          {
-            $discord->send_message( $channel, "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**" );
+            $discord->send_message( $channel, "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**" . $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ ? "difficulty: $1" : '' );
          }
       }
       elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
@@ -655,6 +653,8 @@ sub discord_on_message_create
          };
 
          $discord->send_message( $channel, $message );
+
+      #main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
       }
       elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!xon$/i )
       {
