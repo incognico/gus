@@ -4,13 +4,15 @@
 #
 # Based on https://github.com/vsTerminus/Goose
 #
-# Copyright 2017-2018, Nico R. Wohlgemuth <nico@lifeisabug.com>
+# Copyright 2017-2019, Nico R. Wohlgemuth <nico@lifeisabug.com>
 
 use v5.16.0;
 
 use utf8;
 use strict;
 use warnings;
+
+use lib '/etc/perl';
 
 no warnings 'experimental::smartmatch';
 
@@ -43,17 +45,17 @@ my $config = {
    tosven => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db => "$ENV{HOME}/scstats/scstats.db",
    steamapikey => "",
-   steamapiurl => "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=",
-   steamapiurl2 => "http://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=",
-   serverport => "27210",
+   steamapiurl => "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=",
+   steamapiurl2 => "https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=",
+   serverport => "27015",
    gmapikey => "",
-   xonstaturl => "http://stats.xonotic.org/player/",
+   xonstaturl => "https://stats.xonotic.org/player/",
 
    discord => {
      auto_reconnect => 1,
      client_id => "",
      name => "Gus",
-     owner_id => "",
+     owner_id => "373912992758235148",
 #     game => "Sven Co-op @ twlz",
      token => "",
      verbose => 0,
@@ -61,8 +63,8 @@ my $config = {
 };
 
 my $discord = Mojo::Discord->new(
-   'version'   => '0.1',
-   'url'       => "dummy",
+   'version'   => '9999',
+   'url'       => "https://twlz.lifeisabug.com/",
    'token'     => $$config{'discord'}{'token'},
    'name'      => $$config{'discord'}{'name'},
    'reconnect' => $$config{'discord'}{'auto_reconnect'},
@@ -93,7 +95,7 @@ my $maps = {
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape' => '<:ayaya:510534352262791179> Woohoo, They Hunger: Escape',
    'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
-   'rust_islands_b6' => '<:pog:458682189471809536> R U S T',
+   'rust_mini_b7' => '<:pog:458682189471809536> R U S T',
    'sc_tl_build_puzzle_fft_final' => '<:omegalul:458685801706815489> Build Puzzle',
 };
 
@@ -155,7 +157,7 @@ my $filestream = IO::Async::FileStream->new(
                'color' => '15844367',
                'provider' => {
                   'name' => 'twlz',
-                  'url' => 'http://twlz.lifeisabug.com',
+                  'url' => 'https://twlz.lifeisabug.com',
                 },
                 'fields' => [
                 {
@@ -185,7 +187,7 @@ my $filestream = IO::Async::FileStream->new(
          {
             say localtime(time) . " -> $line";
 
-            $line =~ s/`/\`/g;
+            $line =~ s/`//g;
             $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
             #$line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
             $line =~ s/\@everyone/everyone/g;
@@ -200,10 +202,11 @@ my $filestream = IO::Async::FileStream->new(
 
 my $loop = IO::Async::Loop::Mojo->new();
 $loop->add( $filestream );
-$loop->run;
+$loop->run unless (Mojo::IOLoop->is_running);
 
 close $fh;
 $dbh->disconnect;
+exit;
 
 ###
 
@@ -260,12 +263,12 @@ sub discord_on_message_create
 
          if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
          {
-            $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY date(seen) DESC, score DESC LIMIT 1";
+            $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
             @bind = ( "$1" );
          }
          else
          {
-            $stmt = "SELECT * FROM stats WHERE name LIKE ? ORDER BY date(seen) DESC, score DESC LIMIT 1";
+            $stmt = "SELECT * FROM stats WHERE name LIKE ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
             @bind = ( "%$1%" );
          }
 
@@ -284,23 +287,23 @@ sub discord_on_message_create
  
             my $result = decode_json( $content );
 
-            (my $url2 = $$config{'steamapiurl2'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
-            my $content2 = get( $url2 );
+            #(my $url2 = $$config{'steamapiurl2'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
+            #my $content2 = get( $url2 );
 
-            unless ( defined $content2 )
-            {
-               $discord->send_message( $channel, "`Couldn't query Steam Bans API`" );
-               return;
-            }
+            #unless ( defined $content2 )
+            #{
+            #   $discord->send_message( $channel, "`Couldn't query Steam Bans API`" );
+            #   return;
+            #}
 
-            my $result2 = decode_json( $content2 );
+            #my $result2 = decode_json( $content2 );
 
             my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'}, result_type => 'locality|sublocality|administrative_area_level_1|country|political');
 
             my $input;
             eval { $input = $geo->reverse_geocode( latlng => sprintf('%.3f,%.3f', $r->[12], $r->[13]) ) };
 
-            ´my $loc = 'Unknown';
+            my $loc = 'Unknown';
 
             if ( $input )
             {
@@ -311,7 +314,7 @@ sub discord_on_message_create
                'color' => '15844367',
                'provider' => {
                   'name' => 'twlz',
-                  'url' => 'http://twlz.lifeisabug.com',
+                  'url' => 'https://twlz.lifeisabug.com',
                 },
                 'thumbnail' => {
                    'url' => $$result{'response'}{'players'}->[0]{avatarfull},
@@ -351,16 +354,16 @@ sub discord_on_message_create
                push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
             }
 
-            if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 )
-            {
-               push @{$$embed{'fields'}}, { 'name' => 'VAC Banned', 'value' => "Yes ($$result2{'players'}->[0]{'NumberOfVACBans'})", 'inline' => \1, };
-               push @{$$embed{'fields'}}, { 'name' => 'Last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60).' ago', 'inline' => \1, };
-            }
+            #if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 )
+            #{
+            #   push @{$$embed{'fields'}}, { 'name' => 'VAC Banned', 'value' => "Yes ($$result2{'players'}->[0]{'NumberOfVACBans'})", 'inline' => \1, };
+            #   push @{$$embed{'fields'}}, { 'name' => 'Last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60).' ago', 'inline' => \1, };
+            #}
 
-            if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' )
-            {
-               push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, };
-            }
+            #if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' )
+            #{
+            #   push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, };
+            #}
 
             my $message = {
                'content' => '',
@@ -384,7 +387,7 @@ sub discord_on_message_create
 
          my $q = Net::SRCDS::Queries->new(
             encoding => $encoding,
-            timeout  => 0.15,
+            timeout  => 0.25,
          );
 
          $q->add_server( $addr, $port );
@@ -544,7 +547,7 @@ sub discord_on_message_create
       {
          my $input    = $1;
          my $query    = uri_escape("$input");
-         my $response = get("http://api.urbandictionary.com/v0/define?term=$query");
+         my $response = get("https://api.urbandictionary.com/v0/define?term=$query");
 
          if ( $response )
          {
@@ -612,7 +615,7 @@ sub discord_on_message_create
             'color' => '15844367',
             'provider' => {
                'name' => 'XonStat',
-               'url' => 'http://stats.xonotic.org',
+               'url' => 'https://stats.xonotic.org',
              },
              #'thumbnail' => {
              #   'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
@@ -620,7 +623,7 @@ sub discord_on_message_create
              #   'height' => 38,
              #},
              'image' => {
-                'url' => "http://stats.xonotic.org/static/badges/$qid.png",
+                'url' => "https://stats.xonotic.org/static/badges/$qid.png",
                 'width' => 650,
                 'height' => 70,
              },
@@ -662,7 +665,7 @@ sub discord_on_message_create
       }
 #      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!xon$/i )
 #      {
-#         $discord->send_message( $channel, '<:xon:458355320364859393> IPv4: `connect 148.251.69.59` IPv6: `connect 2a01:4f8:202:3328::2`' );
+#         $discord->send_message( $channel, '<:xon:458355320364859393> IPv4: `connect 207.180.223.40` IPv6: `connect 2a02:c207:3003:5281::1`' );
 #      }
    }
 }
