@@ -18,7 +18,7 @@ no warnings 'experimental::smartmatch';
 
 binmode( STDOUT, ":utf8" );
 
-#use Data::Dumper;
+use Data::Dumper;
 use Mojo::Discord;
 use IO::Async::Loop::Mojo;
 use IO::Async::FileStream;
@@ -38,42 +38,38 @@ my $self;
 my $lastmap = '';
 
 my $config = {
-   chatlinkchan => "458683388887302155",
-   fancystatuschan => "458323696910598167",
-   adminrole => "",
+   chatlinkchan => '458683388887302155',
+   mainchan => '458323696910598167',
+   adminrole => '',
    fromsven => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db => "$ENV{HOME}/scstats/scstats.db",
-   steamapikey => "",
-   steamapiurl => "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=",
-   steamapiurl2 => "https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=",
-   serverport => "27015",
-   gmapikey => "",
-   xonstaturl => "https://stats.xonotic.org/player/",
+   steamapikey => '',
+   steamapiurl => 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=',
+   steamapiurl2 => 'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=',
+   serverport => '27015',
+   gmapikey => '',
+   xonstaturl => 'https://stats.xonotic.org/player/',
 
    discord => {
-     auto_reconnect => 1,
-     client_id => "",
-     name => "Gus",
-     owner_id => "373912992758235148",
-#     game => "Sven Co-op @ twlz",
-     token => "",
-     verbose => 0,
+     client_id => '',
+     owner_id => '373912992758235148',
    }
 };
 
 my $discord = Mojo::Discord->new(
    'version'   => '9999',
-   'url'       => "https://twlz.lifeisabug.com/",
-   'token'     => $$config{'discord'}{'token'},
-   'name'      => $$config{'discord'}{'name'},
-   'reconnect' => $$config{'discord'}{'auto_reconnect'},
-   'verbose'   => $$config{'discord'}{'verbose'},
-   'game'      => $$config{'discord'}{'game'},
+   'url'       => 'dummy',
+   'token'     => '',
+   'name'      => 'Gus',
+   'reconnect' => 1,
+   'verbose'   => 0,
+   'game'      => 'Sven Co-op @ twlz',
    'callbacks' => {
      'READY'          => sub { discord_on_ready(shift) },
      'GUILD_CREATE'   => sub { discord_on_guild_create(shift) },
      'MESSAGE_CREATE' => sub { discord_on_message_create(shift) },
+     'MESSAGE_UPDATE' => sub { discord_on_message_update(shift) },
    },
 );
 
@@ -84,18 +80,12 @@ my $maps = {
    'escape_series_1a' => '<:sven:459617478365020203> Escape Series: Part 1',
    'escape_series_2a' => '<:sven:459617478365020203> Escape Series: Part 2',
    'escape_series_3a' => '<:sven:459617478365020203> Escape Series: Part 3',
-   'etc' => '<:sven:459617478365020203> Earthquake Test Center',
-   'etc2_1' => '<:sven:459617478365020203> Earthquake Test Center 2',
-   'mistake_coop_a' => '<:sven:459617478365020203> Mistake Co-op',
-   'po_c1m1' => '<:sven:459617478365020203> Poke 646',
-   'po_c1m1' => '<:sven:459617478365020203> Poke 646: Vendetta',
-   'rl02' => '<:sven:459617478365020203> Residual Life',
    'th_ep1_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape' => '<:ayaya:510534352262791179> Woohoo, They Hunger: Escape',
    'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
-   'rust_mini_b7' => '<:pog:458682189471809536> R U S T',
+   'rust_mini_b7' => '<:pog:458682189471809536> (mini) R U S T',
    'sc_tl_build_puzzle_fft_final' => '<:omegalul:458685801706815489> Build Puzzle',
 };
 
@@ -124,7 +114,7 @@ my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
 
 $discord->init();
 
-open my $fh, "<", $$config{'fromsven'} or die;
+open my $fh, '<', $$config{'fromsven'} or die;
 
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
@@ -179,7 +169,7 @@ my $filestream = IO::Async::FileStream->new(
             };
             
             $discord->send_message( $$config{'chatlinkchan'}, $message );
-            $discord->send_message( $$config{'fancystatuschan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
+            $discord->send_message( $$config{'mainchan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
 
             $lastmap = $data[1];
          }
@@ -214,7 +204,7 @@ sub discord_on_ready
 {
    my ($hash) = @_;
    add_me($hash->{'user'});
-   say localtime(time) . " Connected to Discord.";
+   say localtime(time) . ' Connected to Discord.';
 }
 
 sub discord_on_guild_create
@@ -227,10 +217,11 @@ sub discord_on_guild_create
 sub discord_on_message_create
 {
    my ($hash) = @_;
-   
+
    my $id = $hash->{'author'}->{'id'};
    my $author = $hash->{'author'};
    my $msg = $hash->{'content'};
+   my $msgid = $hash->{'id'};
    my $channel = $hash->{'channel_id'};
    my @mentions = @{$hash->{'mentions'}};
 
@@ -241,6 +232,15 @@ sub discord_on_message_create
 
    unless ( exists $author->{'bot'} && $author->{'bot'} )
    {
+      $msg =~ s/\@everyone/everyone/g;
+      $msg =~ s/\@here/here/g;
+
+      if ( $channel eq $$config{'mainchan'} )
+      {
+	 my $dirty = clean($channel, $msgid, $msg);
+	 return if $dirty;
+      }
+
       if ( $channel eq $$config{'chatlinkchan'} )
       {
          $msg =~ s/`//g;
@@ -410,6 +410,7 @@ sub discord_on_message_create
       {
          my (@x, $y);
 
+         $msg =~ s/`//g;
          $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
          $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
 
@@ -623,7 +624,7 @@ sub discord_on_message_create
              #   'height' => 38,
              #},
              'image' => {
-                'url' => "https://stats.xonotic.org/static/badges/$qid.png",
+                'url' => "http://stats.xonotic.org/static/badges/$qid.png",
                 'width' => 650,
                 'height' => 70,
              },
@@ -670,6 +671,26 @@ sub discord_on_message_create
    }
 }
 
+sub discord_on_message_update
+{
+   my ($hash) = @_;
+
+   my $author = $hash->{'author'};
+   my $msg = $hash->{'content'};
+   my $msgid = $hash->{'id'};
+   my $channel = $hash->{'channel_id'};
+
+   return 0 unless $msg;
+
+   unless ( exists $author->{'bot'} && $author->{'bot'} )
+   {
+      if ( $channel eq $$config{'mainchan'} )
+      {
+         clean($channel, $msgid, $msg);
+      }
+   }
+}
+
 sub add_me
 {
    my ($user) = @_;
@@ -702,7 +723,25 @@ sub add_guild
    }
 }
 
-sub duration {
+sub clean
+{
+   my ($channel, $msgid, $msg) = @_;
+
+   return 0 unless $msg;
+
+   my $delete = 0;
+
+   $delete++ if ($msg =~ /[^\x{0000}-\x{ffff}]/);
+   $delete++ if ($msg =~ /:\w+:/i);
+   $delete++ if ($msg =~ /https?:\/\/(?:www\.)?tenor/i);
+
+   $discord->delete_message( $channel, $msgid ) if ( $delete );
+
+   return $delete;
+}
+
+sub duration
+{
    my $sec = shift;
 
    my @gmt = gmtime($sec);
