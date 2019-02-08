@@ -18,7 +18,7 @@ no warnings 'experimental::smartmatch';
 
 binmode( STDOUT, ":utf8" );
 
-use Data::Dumper;
+#use Data::Dumper;
 use Mojo::Discord;
 use IO::Async::Loop::Mojo;
 use IO::Async::FileStream;
@@ -59,7 +59,7 @@ my $config = {
 
 my $discord = Mojo::Discord->new(
    'version'   => '9999',
-   'url'       => 'dummy',
+   'url'       => 'https://twlz.lifeisabug.com',
    'token'     => '',
    'name'      => 'Gus',
    'reconnect' => 1,
@@ -624,7 +624,7 @@ sub discord_on_message_create
              #   'height' => 38,
              #},
              'image' => {
-                'url' => "http://stats.xonotic.org/static/badges/$qid.png",
+                'url' => "https://stats.xonotic.org/static/badges/$qid.png",
                 'width' => 650,
                 'height' => 70,
              },
