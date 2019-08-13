@@ -186,7 +186,7 @@ my $filestream = IO::Async::FileStream->new(
          }
          else
          {
-       my $r;
+            my $r;
 
             say localtime(time) . " -> $line";
 
@@ -194,12 +194,12 @@ my $filestream = IO::Async::FileStream->new(
             #$line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
             $line =~ s/\@everyone/everyone/g;
             $line =~ s/\@here/here/g;
-       #$line =~ s/^(?:[+-] )?<(.+)><([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):[0-9+]><STEAM_[0-5]:[01]:[0-9]+> (.+)/`$1`  $3/g;
+            #$line =~ s/^(?:[+-] )?<(.+)><([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):[0-9+]><STEAM_[0-5]:[01]:[0-9]+> (.+)/`$1`  $3/g;
             $line =~ s/<(.+?)><(.+?):.+?><(.+?)> (.+)/`$1`  $4/g;
-       $r = $gi->record_for_address($2);
-       $line =~ s/^- /:airplane_departure:/ if ($line =~ /^- /);
-       $line =~ s/^\+ /:airplane_arriving:/ if ($line =~ /^\+ /);
-       my $final = ':flag_' . lc($r->{country}{iso_code}) . ': ' . $line;
+            $r = $gi->record_for_address($2);
+            $line =~ s/^- /:airplane_departure: / if ($line =~ /^- /);
+            $line =~ s/^\+ /:airplane_arriving: / if ($line =~ /^\+ /);
+            my $final = ':flag_' . lc($r->{country}{iso_code}) . ': ' . $line;
 
             $discord->send_message( $$config{'chatlinkchan'}, $final );
          }
@@ -709,10 +709,10 @@ sub discord_on_message_update
 
    unless ( exists $author->{'bot'} && $author->{'bot'} )
    {
-      if ( $channel eq $$config{'mainchan'} )
-      {
-         #clean($channel, $msgid, $msg);
-      }
+   #if ( $channel eq $$config{'mainchan'} )
+      #{
+      #   clean($channel, $msgid, $msg);
+      #}
    }
 }
 
