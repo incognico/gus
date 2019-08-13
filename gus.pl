@@ -33,23 +33,26 @@ use DateTime::TimeZone;
 use Geo::Coder::Google;
 use Weather::YR;
 use URI::Escape;
+use MaxMind::DB::Reader;
 
 my $self;
 my $lastmap = '';
 
 my $config = {
    chatlinkchan => '458683388887302155',
-   mainchan => '458323696910598167',
-   adminrole => '',
-   fromsven => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
-   tosven => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
-   db => "$ENV{HOME}/scstats/scstats.db",
-   steamapikey => '',
-   steamapiurl => 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=',
+   mainchan     => '458323696910598167',
+   kekchan      => '541343127550558228',
+   adminrole    => '',
+   fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
+   tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
+   db           => "$ENV{HOME}/scstats/scstats.db",
+   steamapikey  => '',
+   steamapiurl  => 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=',
    steamapiurl2 => 'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=',
-   serverport => '27015',
-   gmapikey => '',
-   xonstaturl => 'https://stats.xonotic.org/player/',
+   serverport   => '27015',
+   gmapikey     => '',
+   xonstaturl   => 'https://stats.xonotic.org/player/',
+   geo          => '/usr/share/GeoIP/GeoLite2-City.mmdb',
 
    discord => {
      client_id => '',
@@ -84,8 +87,8 @@ my $maps = {
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape' => '<:ayaya:510534352262791179> Woohoo, They Hunger: Escape',
-   'road_to_shinnen' => '<:kms:459649630548787211> Oh god, oh no, Road to Shinnen',
-   'rust_mini_b7' => '<:pog:458682189471809536> (mini) R U S T',
+   'road_to_shinnen' => '<:kms:603508354786263040> Oh god, oh no, Road to Shinnen',
+   'rust_mini_b8' => '<:pog:458682189471809536> (mini) R U S T',
    'sc_tl_build_puzzle_fft_final' => '<:omegalul:458685801706815489> Build Puzzle',
 };
 
@@ -105,7 +108,14 @@ my @winddesc = (
    'Hurricane'
 );
 
+my $reacts = {
+   264851156973387788 => 'biba:458415471130050565', # biba
+   150294740703772672 => '🏳️‍🌈', # prid
+};
+
 ###
+
+my $gi = MaxMind::DB::Reader->new(file => $$config{'geo'});
 
 my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
    RaiseError => 1,
@@ -128,7 +138,8 @@ my $filestream = IO::Async::FileStream->new(
    on_read => sub {
       my ( $self, $buffref ) = @_;
 
-      while ( $$buffref =~ s/^(.*\n)// ) {
+      while ( $$buffref =~ s/^(.*\n)// )
+      {
          my $line = $1;
 
          chomp( $line );
@@ -175,15 +186,22 @@ my $filestream = IO::Async::FileStream->new(
          }
          else
          {
+       my $r;
+
             say localtime(time) . " -> $line";
 
             $line =~ s/`//g;
-            $line =~ s/^<(.+)><STEAM_0.+> (.+)/`$1`  $2/g;
             #$line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
             $line =~ s/\@everyone/everyone/g;
             $line =~ s/\@here/here/g;
+       #$line =~ s/^(?:[+-] )?<(.+)><([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):[0-9+]><STEAM_[0-5]:[01]:[0-9]+> (.+)/`$1`  $3/g;
+            $line =~ s/<(.+?)><(.+?):.+?><(.+?)> (.+)/`$1`  $4/g;
+       $r = $gi->record_for_address($2);
+       $line =~ s/^- /:airplane_departure:/ if ($line =~ /^- /);
+       $line =~ s/^\+ /:airplane_arriving:/ if ($line =~ /^\+ /);
+       my $final = ':flag_' . lc($r->{country}{iso_code}) . ': ' . $line;
 
-            $discord->send_message( $$config{'chatlinkchan'}, $line );
+            $discord->send_message( $$config{'chatlinkchan'}, $final );
          }
       }
       return 0;
@@ -235,10 +253,15 @@ sub discord_on_message_create
       $msg =~ s/\@everyone/everyone/g;
       $msg =~ s/\@here/here/g;
 
-      if ( $channel eq $$config{'mainchan'} )
+      #if ( $channel eq $$config{'mainchan'} )
+      #{
+      #   my $dirty = clean($channel, $msgid, $msg);
+      #   return if ( $dirty );
+      #}
+
+      if ( $channel eq $$config{'kekchan'} )
       {
-	 my $dirty = clean($channel, $msgid, $msg);
-	 return if $dirty;
+         $discord->add_reaction( $channel, $msgid, $$reacts{$id} ) if ( exists $$reacts{$id} );
       }
 
       if ( $channel eq $$config{'chatlinkchan'} )
@@ -258,6 +281,8 @@ sub discord_on_message_create
       }
       elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!player (.+)/i )
       {
+         return; # disabled for now
+
          my $param = $1;
          my ($stmt, @bind, $r);
 
@@ -582,7 +607,7 @@ sub discord_on_message_create
          ($qid = $1) =~ s/[^0-9]//g;
 
          unless ($qid) {
-            $discord->send_message( $channel, 'invalid player id');
+            $discord->send_message( $channel, 'Invalid player ID');
             return;
          }
 
@@ -592,7 +617,7 @@ sub discord_on_message_create
             eval { $stats = decode_json($json) };
          }
          else {
-            $discord->send_message( $channel, 'no response from server; correct player id?');
+            $discord->send_message( $channel, 'No response from server; Correct player ID?');
             return;
          }
 
@@ -686,7 +711,7 @@ sub discord_on_message_update
    {
       if ( $channel eq $$config{'mainchan'} )
       {
-         clean($channel, $msgid, $msg);
+         #clean($channel, $msgid, $msg);
       }
    }
 }
