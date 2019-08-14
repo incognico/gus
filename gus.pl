@@ -197,8 +197,8 @@ my $filestream = IO::Async::FileStream->new(
             #$line =~ s/^(?:[+-] )?<(.+)><([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):[0-9+]><STEAM_[0-5]:[01]:[0-9]+> (.+)/`$1`  $3/g;
             $line =~ s/<(.+?)><(.+?):.+?><(.+?)> (.+)/`$1`  $4/g;
             $r = $gi->record_for_address($2);
-            $line =~ s/^- /:airplane_departure: / if ($line =~ /^- /);
-            $line =~ s/^\+ /:airplane_arriving: / if ($line =~ /^\+ /);
+            $line =~ s/^- /<:gtfo:603609334781313037> / if ($line =~ /^- /);
+            $line =~ s/^\+ /<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
             my $final = ':flag_' . lc($r->{country}{iso_code}) . ': ' . $line;
 
             $discord->send_message( $$config{'chatlinkchan'}, $final );
