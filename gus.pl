@@ -113,7 +113,7 @@ my $reacts = {
    150294740703772672 => '🏳️‍🌈', # prid
 };
 
-my $discord_markdown_pattern = qr/(?<!\\)(@|:|#|\||__|\*|~|>)/;
+my $discord_markdown_pattern = qr/(?<!\\)(@|:|#|\||__|\*|~|>|`)/;
 
 ###
 
