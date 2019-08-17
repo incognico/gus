@@ -195,8 +195,8 @@ my $filestream = IO::Async::FileStream->new(
 
             #$line =~ s/`//g;
             #$line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
-            #$line =~ s/\@everyone/everyone/g;
-            #$line =~ s/\@here/here/g;
+            $line =~ s/\@everyone/everyone/g;
+            $line =~ s/\@here/here/g;
             #$line =~ s/^(?:[+-] )?<(.+)><([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):[0-9+]><STEAM_[0-5]:[01]:[0-9]+> (.+)/`$1`  $3/g;
             #$line =~ s/<(.+?)><(.+?):.+?><(.+?)> (.+)/`$1`  $4/g;
             $line =~ /<(.+?)><(.+?):.+?><(.+?)> (.+)/;
