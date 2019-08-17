@@ -189,7 +189,7 @@ my $filestream = IO::Async::FileStream->new(
          else
          {
             my $r;
-			my $final;
+            my $final;
 
             say localtime(time) . " -> $line";
 
