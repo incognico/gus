@@ -113,6 +113,8 @@ my $reacts = {
    150294740703772672 => '🏳️‍🌈', # prid
 };
 
+my $discord_markdown_pattern = qr/(?<!\\)(@|:|#|\||__|\*|~|>|`)/;
+
 ###
 
 my $gi = MaxMind::DB::Reader->new(file => $$config{'geo'});
@@ -187,21 +189,28 @@ my $filestream = IO::Async::FileStream->new(
          else
          {
             my $r;
+            my $final;
 
             say localtime(time) . " -> $line";
 
-            $line =~ s/`//g;
+            #$line =~ s/`//g;
             #$line =~ s/\@ADMINS?/<@&$$config{'adminrole'}>/gi;
             $line =~ s/\@everyone/everyone/g;
             $line =~ s/\@here/here/g;
             #$line =~ s/^(?:[+-] )?<(.+)><([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):[0-9+]><STEAM_[0-5]:[01]:[0-9]+> (.+)/`$1`  $3/g;
-            $line =~ s/<(.+?)><(.+?):.+?><(.+?)> (.+)/`$1`  $4/g;
+            #$line =~ s/<(.+?)><(.+?):.+?><(.+?)> (.+)/`$1`  $4/g;
+            $line =~ /<(.+?)><(.+?):.+?><(.+?)> (.+)/;
             $r = $gi->record_for_address($2);
-            $line =~ s/^- /<:gtfo:603609334781313037> / if ($line =~ /^- /);
-            $line =~ s/^\+ /<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
-            my $final = ':flag_' . lc($r->{country}{iso_code}) . ': ' . $line;
+            my $nick = $1;
+            my $msg = $4;
+            $nick =~ s/$discord_markdown_pattern/\\$1/g;
+            $msg =~ s/$discord_markdown_pattern/\\$1/g;
 
-            $discord->send_message( $$config{'chatlinkchan'}, $final );
+            $final = "`$nick` $msg";
+            $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
+            $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
+
+            $discord->send_message( $$config{'chatlinkchan'}, ":flag_@{\(lc($r->{country}{iso_code}))}: " . $final );
          }
       }
       return 0;
