@@ -206,7 +206,7 @@ my $filestream = IO::Async::FileStream->new(
             $nick =~ s/$discord_markdown_pattern/\\$1/g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
 
-			$final = "`$nick` $msg";
+            $final = "`$nick` $msg";
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
