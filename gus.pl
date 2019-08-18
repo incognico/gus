@@ -198,7 +198,7 @@ my $filestream = IO::Async::FileStream->new(
             my $msg = $4;
             my $r = $gi->record_for_address($2);
 
-            $nick =~ s/$discord_markdown_pattern/\\$1/g;
+            #$nick =~ s/$discord_markdown_pattern/\\$1/g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
 
             my $final = "`$nick` $msg";
