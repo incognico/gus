@@ -198,10 +198,11 @@ my $filestream = IO::Async::FileStream->new(
             my $msg = $4;
             my $r = $gi->record_for_address($2);
 
+            $nick =~ s/`//g;
             #$nick =~ s/$discord_markdown_pattern/\\$1/g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
 
-            my $final = "`$nick`  $msg";
+            my $final = "` $nick`  $msg";
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
