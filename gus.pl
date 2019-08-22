@@ -25,6 +25,7 @@ use IO::Async::FileStream;
 use DBI;
 use DBD::SQLite::Constants ':file_open';
 use LWP::Simple '!head';
+use LWP::UserAgent;
 use JSON;
 use Net::SRCDS::Queries;
 use IO::Interface::Simple;
@@ -143,7 +144,7 @@ my $filestream = IO::Async::FileStream->new(
 
       while ( $$buffref =~ s/^(.*\n)// )
       {
-         my $line = Encode::decode_utf8( $1 );
+         my $line = Encode::decode_utf8($1);
 
          chomp( $line );
 
@@ -573,6 +574,28 @@ sub discord_on_message_create
          };
 
          $discord->send_message( $channel, $message );
+      }
+      elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{'kekchan'} )
+      {
+         my $type = defined $1 ? $1 : 'random';
+         $type =~ s/ //g;
+
+         my @types = qw(hass hmidriff pgif 4k hentai holo hneko neko hkitsune kemonomimi anal hanal gonewild kanna ass pussy thigh hthigh gah coffee food);
+         $type = $types[rand @types] if ( $type eq 'random' );
+
+         if ( $type eq 'help' || !( $type ~~ @types ) )
+         {
+            $discord->send_message( $channel, "`One of: @{types}`" );
+            return;
+         }
+
+         my $neko = "https://nekobot.xyz/api/image?type=$type";
+         my $ua = LWP::UserAgent->new;
+         $ua->agent( 'Mozilla/5.0' );
+         my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
+         my $i = from_json ( $r->content );
+
+         $discord->send_message( $channel, $$i{message} ) if (defined $$i{success} && $$i{success});
       }
       elsif ( $msg =~ /^!ud (.+)/i )
       {
