@@ -73,7 +73,7 @@ my $discord = Mojo::Discord->new(
      'READY'          => sub { discord_on_ready(shift) },
      'GUILD_CREATE'   => sub { discord_on_guild_create(shift) },
      'MESSAGE_CREATE' => sub { discord_on_message_create(shift) },
-     'MESSAGE_UPDATE' => sub { discord_on_message_update(shift) },
+#     'MESSAGE_UPDATE' => sub { discord_on_message_update(shift) },
    },
 );
 
