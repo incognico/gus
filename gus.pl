@@ -113,7 +113,7 @@ my $reacts = {
    150294740703772672 => '🏳️‍🌈', # prid
 };
 
-my $discord_markdown_pattern = qr/(?<!\\)(@|:|#|\||__|\*|~|>|`)/;
+my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 
 ###
 
@@ -198,14 +198,14 @@ my $filestream = IO::Async::FileStream->new(
             my $msg = $4;
             my $r = $gi->record_for_address($2);
 
-            $nick =~ s/$discord_markdown_pattern/\\$1/g;
+	    $nick =~ s/`//g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
 
-            my $final = "`$nick` $msg";
+            my $final = "` $nick`  $msg";
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
-            $discord->send_message( $$config{'chatlinkchan'}, ':flag_' . lc($r->{country}{iso_code}) . ':' . $final );
+            $discord->send_message( $$config{'chatlinkchan'}, ':flag_' . lc($r->{country}{iso_code}) . ': ' . $final );
          }
       }
       return 0;
@@ -283,7 +283,7 @@ sub discord_on_message_create
          say $tosvenfh "(DISCORD) $$author{'username'}: $msg";
          close $tosvenfh;
       }
-      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!player (.+)/i )
+      elsif ( $msg =~ /^!player (.+)/i )
       {
          return; # disabled for now
 
@@ -406,7 +406,7 @@ sub discord_on_message_create
              $discord->send_message( $channel, "`No results`" );
          }
       }
-      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!status/i )
+      elsif ( $msg =~ /^!status/i )
       {
          my $if       = IO::Interface::Simple->new('lo');
          my $addr     = $if->address;
@@ -445,7 +445,7 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, "`@x`" );
       }
-      elsif ( $channel ne $$config{'chatlinkchan'} && ( $msg =~ /^!weather (.+)/i || $msg =~ /^!w (.+)/i ) )
+      elsif ( $msg =~ /^!w (.+)/i || $msg =~ /^!weather (.+)/i )
       {
          my ($loc, $lat, $lon);
          my $alt = 0;
@@ -573,7 +573,7 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, $message );
       }
-      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!ud (.+)/i )
+      elsif ( $msg =~ /^!ud (.+)/i )
       {
          my $input    = $1;
          my $query    = uri_escape("$input");
@@ -606,7 +606,7 @@ sub discord_on_message_create
             $discord->send_message( $channel, '`API error`' );
          }
       }
-      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!xonstat (.+)/i ) {
+      elsif ( $msg =~ /^!xonstat (.+)/i ) {
          my ($qid, $stats);
          ($qid = $1) =~ s/[^0-9]//g;
 
@@ -653,7 +653,7 @@ sub discord_on_message_create
              #   'height' => 38,
              #},
              'image' => {
-                'url' => "https://stats.xonotic.org/static/badges/$qid.png",
+                'url' => "https://stats.xonotic.org/static/badges/$qid.png?" . time, # work around discord image caching
                 'width' => 650,
                 'height' => 70,
              },
@@ -693,32 +693,32 @@ sub discord_on_message_create
 
       #main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
       }
-#      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^!xon$/i )
+#      elsif ( $msg =~ /^!xon$/i )
 #      {
 #         $discord->send_message( $channel, '<:xon:458355320364859393> IPv4: `connect 207.180.223.40` IPv6: `connect 2a02:c207:3003:5281::1`' );
 #      }
    }
 }
 
-sub discord_on_message_update
-{
-   my ($hash) = @_;
-
-   my $author = $hash->{'author'};
-   my $msg = $hash->{'content'};
-   my $msgid = $hash->{'id'};
-   my $channel = $hash->{'channel_id'};
-
-   return 0 unless $msg;
-
-   unless ( exists $author->{'bot'} && $author->{'bot'} )
-   {
-   #if ( $channel eq $$config{'mainchan'} )
-      #{
-      #   clean($channel, $msgid, $msg);
-      #}
-   }
-}
+#sub discord_on_message_update
+#{
+#   my ($hash) = @_;
+#
+#   my $author = $hash->{'author'};
+#   my $msg = $hash->{'content'};
+#   my $msgid = $hash->{'id'};
+#   my $channel = $hash->{'channel_id'};
+#
+#   return 0 unless $msg;
+#
+#   unless ( exists $author->{'bot'} && $author->{'bot'} )
+#   {
+#   if ( $channel eq $$config{'mainchan'} )
+#   {
+#      clean($channel, $msgid, $msg);
+#   }
+#   }
+#}
 
 sub add_me
 {
