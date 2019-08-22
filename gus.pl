@@ -34,6 +34,7 @@ use Geo::Coder::Google;
 use Weather::YR;
 use URI::Escape;
 use MaxMind::DB::Reader;
+use Encode;
 
 my $self;
 my $lastmap = '';
@@ -142,7 +143,7 @@ my $filestream = IO::Async::FileStream->new(
 
       while ( $$buffref =~ s/^(.*\n)// )
       {
-         my $line = $1;
+         my $line = Encode::decode_utf8( $1 );
 
          chomp( $line );
 
