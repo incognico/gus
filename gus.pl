@@ -70,7 +70,6 @@ my $discord = Mojo::Discord->new(
    'name'      => 'Gus',
    'reconnect' => 1,
    'verbose'   => 0,
-   'game'      => 'Sven Co-op @ twlz',
    'callbacks' => {
      'READY'          => sub { discord_on_ready(shift) },
      'GUILD_CREATE'   => sub { discord_on_guild_create(shift) },
@@ -245,6 +244,7 @@ sub discord_on_ready
 {
    my ($hash) = @_;
    add_me($hash->{'user'});
+   $discord->status_update( { 'game' => 'Sven Co-op @ twlz' } );
    say localtime(time) . ' Connected to Discord.';
 }
 
