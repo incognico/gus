@@ -2,6 +2,7 @@
 
 # Gus - Discord bot for the twilightzone Sven Co-op server
 #
+# Required "moo" branch of https://github.com/vsTerminus/Mojo-Discord
 # Based on https://github.com/vsTerminus/Goose
 #
 # Copyright 2017-2019, Nico R. Wohlgemuth <nico@lifeisabug.com>
@@ -88,10 +89,26 @@ my $maps = {
    'th_ep1_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
-   'th_escape' => '<:ayaya:510534352262791179> Woohoo, They Hunger: Escape',
-   'road_to_shinnen' => '<:kms:603508354786263040> Oh god, oh no, Road to Shinnen',
-   'rust_mini_b8' => '<:pog:458682189471809536> (mini) R U S T',
-   'sc_tl_build_puzzle_fft_final' => '<:omegalul:458685801706815489> Build Puzzle',
+   'th_escape' => '<:irlmaier:460382258336104448> They Hunger: Escape',
+   'road_to_shinnen' => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
+   'rust_mini_b8' => '<:eecat:460442390457483274> (mini) R U S T',
+   'rust_legacy_b7' => '<:eecat:460442390457483274> (old) R U S T',
+   'rust_islands_b7' => '<:eecat:460442390457483274> R U S T',
+   'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
+   'botparty' => '<:omegalul:458685801706815489> Bot Party',
+   'botrace' => '<:happy:555506080793493538> Bot Race',
+   'quad_f' => '<:KannaSpook:603856338132664321> Quad',
+   'ra_quad' => '<:Kannasuicide:603609334080995338> Real Adrenaline Quad',
+   'g-ara1' => '<:nani:603508663562272788> G-ARA',
+   'uboa' => '<:scary:516921261688094720> UBOA',
+   'the_daikon_warfare1' => '<:wow:516921262199799818> The Daikon Warfare: 1',
+   'the_daikon_warfare2' => '<:wow:516921262199799818> The Daikon Warfare: 2',
+   'the_daikon_warfare3' => '<:wow:516921262199799818> The Daikon Warfare: 3',
+   'pizza_ya_san1' => ':pizza: Pizza Ya San: 1',
+   'pizza_ya_san2' => ':pizza: Pizza Ya San: 2',
+   'otokotati_no_kouzan' => '<:piginablanket:542462830163656764> Otokotati No Kouzan',
+   'hidoi_map1' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
+   'hidoi_map2' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
 };
 
 my @winddesc = (
@@ -192,13 +209,13 @@ my $filestream = IO::Async::FileStream->new(
          {
             say localtime(time) . " -> $line";
 
-            $line =~ s/\@everyone/everyone/g;
-            $line =~ s/\@here/here/g;
-
             $line =~ /<(.+?)><(.+?):.+?><(.+?)> (.+)/;
             my $nick = $1;
             my $msg = $4;
             my $r = $gi->record_for_address($2);
+
+            $msg =~ s/\@+everyone/everyone/g;
+            $msg =~ s/\@+here/here/g;
 
 	    $nick =~ s/`//g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
@@ -234,7 +251,6 @@ sub discord_on_ready
 sub discord_on_guild_create
 {
    my ($hash) = @_;
-   say localtime(time) . " Adding guild: " . $hash->{'id'} . " -> " . $hash->{'name'};
    add_guild($hash);
 }
 
