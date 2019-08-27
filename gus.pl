@@ -55,7 +55,7 @@ my $config = {
    serverport   => '27015',
    gmapikey     => '',
    xonstaturl   => 'https://stats.xonotic.org/player/',
-   geo          => '/usr/share/GeoIP/GeoLite2-City.mmdb',
+   geo          => '/home/svends/gus/GeoLite2-City.mmdb',
 
    discord => {
      client_id => '',
@@ -303,7 +303,7 @@ sub discord_on_message_create
       }
       elsif ( $msg =~ /^!player (.+)/i )
       {
-         return; # disabled for now
+         # return; # disabled for now
 
          my $param = $1;
          my ($stmt, @bind, $r);
@@ -382,11 +382,11 @@ sub discord_on_message_create
                     'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ":flag_".lc($r->[11]).":",
                     'inline' => \1,
                  },
-                 {
-                    'name'   => 'Time on TWLZ',
-                    'value'  => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ),
-                    'inline' => \1,
-                 },
+#                 {
+#                    'name'   => 'Time on TWLZ',
+#                    'value'  => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ),
+#                    'inline' => \1,
+#                 },
                  {
                     'name'   => 'Last Seen',
                     'value'  => defined $r->[16] ? $r->[16] : 'Unknown',
@@ -395,22 +395,22 @@ sub discord_on_message_create
                  ],
             };
 
-            if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
-            {
-               push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
-               push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
-            }
+#            if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
+#            {
+#               push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
+#               push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
+#            }
 
-            #if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 )
-            #{
-            #   push @{$$embed{'fields'}}, { 'name' => 'VAC Banned', 'value' => "Yes ($$result2{'players'}->[0]{'NumberOfVACBans'})", 'inline' => \1, };
-            #   push @{$$embed{'fields'}}, { 'name' => 'Last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60).' ago', 'inline' => \1, };
-            #}
-
-            #if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' )
-            #{
-            #   push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, };
-            #}
+#            if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 )
+#            {
+#               push @{$$embed{'fields'}}, { 'name' => 'VAC Banned', 'value' => "Yes ($$result2{'players'}->[0]{'NumberOfVACBans'})", 'inline' => \1, };
+#               push @{$$embed{'fields'}}, { 'name' => 'Last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60).' ago', 'inline' => \1, };
+#            }
+#
+#            if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' )
+#            {
+#               push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, };
+#            }
 
             my $message = {
                'content' => '',
