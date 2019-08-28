@@ -39,13 +39,12 @@ use MaxMind::DB::Reader;
 use Encode;
 
 my $self;
-my $lastmap = '';
 
 my $config = {
+   game         => 'Sven Co-op @ twlz',
    chatlinkchan => '458683388887302155',
    mainchan     => '458323696910598167',
    kekchan      => '541343127550558228',
-   adminrole    => '',
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
@@ -54,8 +53,7 @@ my $config = {
    steamapiurl2 => 'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=',
    serverport   => '27015',
    gmapikey     => '',
-   xonstaturl   => 'https://stats.xonotic.org/player/',
-   geo          => '/home/svends/gus/GeoLite2-City.mmdb',
+   geo          => "$ENV{HOME}/gus/GeoLite2-City.mmdb",
 
    discord => {
      client_id => '',
@@ -82,32 +80,32 @@ my $maps = {
    'hl_c01_a1' => '<:flower:458608402549964814> Half-Life',
    'of1a1' => '<:flower:458608402549964814> Opposing Force',
    'ba_security1' => '<:flower:458608402549964814> Blue Shift',
-   'escape_series_1a' => '<:sven:459617478365020203> Escape Series: Part 1',
-   'escape_series_2a' => '<:sven:459617478365020203> Escape Series: Part 2',
-   'escape_series_3a' => '<:sven:459617478365020203> Escape Series: Part 3',
    'th_ep1_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape' => '<:irlmaier:460382258336104448> They Hunger: Escape',
-   'road_to_shinnen' => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
-   'rust_mini_b8' => '<:eecat:460442390457483274> (mini) R U S T',
-   'rust_legacy_b7' => '<:eecat:460442390457483274> (old) R U S T',
-   'rust_islands_b7' => '<:eecat:460442390457483274> R U S T',
-   'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
+   'escape_series_1a' => '<:sven:459617478365020203> Escape Series: Part 1',
+   'escape_series_2a' => '<:sven:459617478365020203> Escape Series: Part 2',
+   'escape_series_3a' => '<:sven:459617478365020203> Escape Series: Part 3',
    'botparty' => '<:omegalul:458685801706815489> Bot Party',
    'botrace' => '<:happy:555506080793493538> Bot Race',
+   'g-ara1' => '<:nani:603508663562272788> G-ARA',
+   'hidoi_map1' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
+   'hidoi_map2' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
+   'otokotati_no_kouzan' => '<:piginablanket:542462830163656764> Otokotati No Kouzan',
+   'pizza_ya_san1' => ':pizza: Pizza Ya San: 1',
+   'pizza_ya_san2' => ':pizza: Pizza Ya San: 2',
    'quad_f' => '<:KannaSpook:603856338132664321> Quad',
    'ra_quad' => '<:Kannasuicide:603609334080995338> Real Adrenaline Quad',
-   'g-ara1' => '<:nani:603508663562272788> G-ARA',
-   'uboa' => '<:scary:516921261688094720> UBOA',
+   'road_to_shinnen' => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
+   'rust_islands_b7' => '<:eecat:460442390457483274> R U S T',
+   'rust_legacy_b7' => '<:eecat:460442390457483274> (old) R U S T',
+   'rust_mini_b8' => '<:eecat:460442390457483274> (mini) R U S T',
+   'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
    'the_daikon_warfare1' => '<:wow:516921262199799818> The Daikon Warfare: 1',
    'the_daikon_warfare2' => '<:wow:516921262199799818> The Daikon Warfare: 2',
    'the_daikon_warfare3' => '<:wow:516921262199799818> The Daikon Warfare: 3',
-   'pizza_ya_san1' => ':pizza: Pizza Ya San: 1',
-   'pizza_ya_san2' => ':pizza: Pizza Ya San: 2',
-   'otokotati_no_kouzan' => '<:piginablanket:542462830163656764> Otokotati No Kouzan',
-   'hidoi_map1' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
-   'hidoi_map2' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
+   'uboa' => '<:scary:516921261688094720> UBOA',
 };
 
 my @winddesc = (
@@ -200,9 +198,13 @@ my $filestream = IO::Async::FileStream->new(
             };
             
             $discord->send_message( $$config{'chatlinkchan'}, $message );
-            $discord->send_message( $$config{'mainchan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** players!" ) if ( exists $$maps{$data[1]} && $lastmap ne $data[1] );
 
-            $lastmap = $data[1];
+            if ( exists $$maps{$data[1]} )
+	    {
+	       my $s = '';
+	       $s = 's' if ( $data[2] > 1 );
+               $discord->send_message( $$config{'mainchan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** player$s!" );
+            }
          }
          else
          {
@@ -240,20 +242,6 @@ exit;
 
 ###
 
-sub discord_on_ready
-{
-   my ($hash) = @_;
-   add_me($hash->{'user'});
-   $discord->status_update( { 'game' => 'Sven Co-op @ twlz' } );
-   say localtime(time) . ' Connected to Discord.';
-}
-
-sub discord_on_guild_create
-{
-   my ($hash) = @_;
-   add_guild($hash);
-}
-
 sub discord_on_message_create
 {
    my ($hash) = @_;
@@ -265,21 +253,18 @@ sub discord_on_message_create
    my $channel = $hash->{'channel_id'};
    my @mentions = @{$hash->{'mentions'}};
 
-   foreach my $mention ( @mentions )
-   {
-      add_user( $mention );
-   }
+   add_user($_ ) for(@mentions);
 
    unless ( exists $author->{'bot'} && $author->{'bot'} )
    {
-      $msg =~ s/\@everyone/everyone/g;
-      $msg =~ s/\@here/here/g;
+      $msg =~ s/\@+everyone/everyone/g;
+      $msg =~ s/\@+here/here/g;
 
-      #if ( $channel eq $$config{'mainchan'} )
-      #{
-      #   my $dirty = clean($channel, $msgid, $msg);
-      #   return if ( $dirty );
-      #}
+#      if ( $channel eq $$config{'mainchan'} )
+#      {
+#         my $dirty = clean($channel, $msgid, $msg);
+#         return if ( $dirty );
+#      }
 
       if ( $channel eq $$config{'kekchan'} )
       {
@@ -303,8 +288,6 @@ sub discord_on_message_create
       }
       elsif ( $msg =~ /^!player (.+)/i )
       {
-         # return; # disabled for now
-
          my $param = $1;
          my ($stmt, @bind, $r);
 
@@ -334,16 +317,16 @@ sub discord_on_message_create
  
             my $result = decode_json( $content );
 
-            #(my $url2 = $$config{'steamapiurl2'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
-            #my $content2 = get( $url2 );
+            (my $url2 = $$config{'steamapiurl2'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
+            my $content2 = get( $url2 );
 
-            #unless ( defined $content2 )
-            #{
-            #   $discord->send_message( $channel, "`Couldn't query Steam Bans API`" );
-            #   return;
-            #}
+            unless ( defined $content2 )
+            {
+               $discord->send_message( $channel, "`Couldn't query Steam Bans API`" );
+               return;
+            }
 
-            #my $result2 = decode_json( $content2 );
+            my $result2 = decode_json( $content2 );
 
             my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'}, result_type => 'locality|sublocality|administrative_area_level_1|country|political');
 
@@ -351,11 +334,7 @@ sub discord_on_message_create
             eval { $input = $geo->reverse_geocode( latlng => sprintf('%.3f,%.3f', $r->[12], $r->[13]) ) };
 
             my $loc = 'Unknown';
-
-            if ( $input )
-            {
-               $loc = $input->{formatted_address};
-            }
+            $loc = $input->{formatted_address} if ( $input );
 
             my $embed = {
                'color' => '15844367',
@@ -401,16 +380,8 @@ sub discord_on_message_create
 #               push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
 #            }
 
-#            if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 )
-#            {
-#               push @{$$embed{'fields'}}, { 'name' => 'VAC Banned', 'value' => "Yes ($$result2{'players'}->[0]{'NumberOfVACBans'})", 'inline' => \1, };
-#               push @{$$embed{'fields'}}, { 'name' => 'Last VAC Ban', 'value' => duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60).' ago', 'inline' => \1, };
-#            }
-#
-#            if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' )
-#            {
-#               push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, };
-#            }
+            push @{$$embed{'fields'}}, { 'name' => 'VAC Bans', 'value' => $$result2{'players'}->[0]{'NumberOfVACBans'} . ' (' . duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60) . ' ago)', 'inline' => \1, } if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 );
+            push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, } if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' );
 
             my $message = {
                'content' => '',
@@ -434,7 +405,7 @@ sub discord_on_message_create
 
          my $q = Net::SRCDS::Queries->new(
             encoding => $encoding,
-            timeout  => 0.25,
+            timeout  => 0.3,
          );
 
          $q->add_server( $addr, $port );
@@ -453,17 +424,7 @@ sub discord_on_message_create
             $discord->send_message( $channel, $msg );
          }
       }
-      elsif ( $channel ne $$config{'chatlinkchan'} && $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
-      {
-         my (@x, $y);
-
-         $msg =~ s/`//g;
-         $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
-         $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
-
-         $discord->send_message( $channel, "`@x`" );
-      }
-      elsif ( $msg =~ /^!w (.+)/i || $msg =~ /^!weather (.+)/i )
+      elsif ( $msg =~ /^!w(?:eather)? (.+)/i )
       {
          my ($loc, $lat, $lon);
          my $alt = 0;
@@ -489,20 +450,13 @@ sub discord_on_message_create
          {
             my $elevdata;
             eval { $elevdata = decode_json($json) };
-
-            if ( $elevdata->{status} eq 'OK' )
-            {
-               $alt = $elevdata->{results}->[0]->{elevation};
-            }
+            $alt = $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
          }
 
          my $flag = 'flag_white';
          for ( @{$input->{address_components}} )
          {
-            if ( 'country' ~~ @{$_->{types}} )
-            {
-               $flag = 'flag_' . lc($_->{short_name});
-            }
+            $flag = 'flag_' . lc($_->{short_name}) if ( 'country' ~~ @{$_->{types}} );
          }
 
          my $fcloc;
@@ -593,7 +547,7 @@ sub discord_on_message_create
       }
       elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{'kekchan'} )
       {
-         my $type = defined $1 ? $1 : 'random';
+         my $type = defined $1 ? lc($1) : 'random';
          $type =~ s/ //g;
 
          my @types = qw(hass hmidriff pgif 4k hentai holo hneko neko hkitsune kemonomimi anal hanal gonewild kanna ass pussy thigh hthigh gah coffee food);
@@ -646,7 +600,7 @@ sub discord_on_message_create
             $discord->send_message( $channel, '`API error`' );
          }
       }
-      elsif ( $msg =~ /^!xonstat (.+)/i ) {
+      elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i ) {
          my ($qid, $stats);
          ($qid = $1) =~ s/[^0-9]//g;
 
@@ -655,7 +609,8 @@ sub discord_on_message_create
             return;
          }
 
-         my $json = get($$config{'xonstaturl'} . $qid . '.json');
+         my $xonstaturl = 'https://stats.xonotic.org/player/';
+         my $json = get( $xonstaturl . $qid . '.json');
 
          if ($json) {
             eval { $stats = decode_json($json) };
@@ -687,11 +642,11 @@ sub discord_on_message_create
                'name' => 'XonStat',
                'url' => 'https://stats.xonotic.org',
              },
-             #'thumbnail' => {
-             #   'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
-             #   'width' => 38,
-             #   'height' => 38,
-             #},
+#             'thumbnail' => {
+#                'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
+#                'width' => 38,
+#                'height' => 38,
+#             },
              'image' => {
                 'url' => "https://stats.xonotic.org/static/badges/$qid.png?" . time, # work around discord image caching
                 'width' => 650,
@@ -703,7 +658,7 @@ sub discord_on_message_create
              'fields' => [
               {
                  'name'   => 'Name',
-                 'value'  => "**[$snick]($$config{'xonstaturl'}$qid)**",
+                 'value'  => "**[$snick]($xonstaturl$qid)**",
                  'inline' => \1,
               },
               {
@@ -731,12 +686,18 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, $message );
 
-      #main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
+#      main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
       }
-#      elsif ( $msg =~ /^!xon$/i )
-#      {
-#         $discord->send_message( $channel, '<:xon:458355320364859393> IPv4: `connect 207.180.223.40` IPv6: `connect 2a02:c207:3003:5281::1`' );
-#      }
+      elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
+      {
+         my (@x, $y);
+
+         $msg =~ s/`//g;
+         $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
+         $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
+
+         $discord->send_message( $channel, "`@x`" );
+      }
    }
 }
 
@@ -759,6 +720,20 @@ sub discord_on_message_create
 #   }
 #   }
 #}
+
+sub discord_on_ready
+{
+   my ($hash) = @_;
+   add_me($hash->{'user'});
+   $discord->status_update( { 'game' => $$config{'game'} } ) if ( $$config{'game'} );
+   say localtime(time) . ' Connected to Discord.';
+}
+
+sub discord_on_guild_create
+{
+   my ($hash) = @_;
+   add_guild($hash);
+}
 
 sub add_me
 {
