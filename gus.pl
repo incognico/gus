@@ -45,6 +45,7 @@ my $config = {
    chatlinkchan => '458683388887302155',
    mainchan     => '458323696910598167',
    kekchan      => '541343127550558228',
+   ayayachan    => '459345843942588427',
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
@@ -291,6 +292,9 @@ sub discord_on_message_create
          my $param = $1;
          my ($stmt, @bind, $r);
 
+         my $nsa;
+         $nsa = 1 if ( $channel eq $$config{'ayayachan'} );
+
          if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
          {
             $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
@@ -345,11 +349,6 @@ sub discord_on_message_create
                 'thumbnail' => {
                    'url' => $$result{'response'}{'players'}->[0]{avatarfull},
                 },
-#                'image' => {
-#                   'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$r->[12],$r->[13]&zoom=7",
-#                   'width' => 360,
-#                   'height' => 80,
-#                },
                 'fields' => [
                 {
                    'name'   => 'Name',
@@ -361,11 +360,6 @@ sub discord_on_message_create
                     'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ":flag_".lc($r->[11]).":",
                     'inline' => \1,
                  },
-#                 {
-#                    'name'   => 'Time on TWLZ',
-#                    'value'  => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ),
-#                    'inline' => \1,
-#                 },
                  {
                     'name'   => 'Last Seen',
                     'value'  => defined $r->[16] ? $r->[16] : 'Unknown',
@@ -374,11 +368,26 @@ sub discord_on_message_create
                  ],
             };
 
-#            if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
-#            {
-#               push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
-#               push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
-#            }
+	    if ( $nsa )
+	    {
+#               $$embed{'image'} = {
+#                   'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$r->[12],$r->[13]&zoom=8&key=$$config{'gmapikey'}", # unsafe
+#                   'width' => 360,
+#                   'height' => 80,
+#               };
+
+               $$embed{'footer'} = { 'text' => , 'STEAM_' . $r->[1] };
+
+               push @{$$embed{'fields'}}, { 'name' => 'Time on TWLZ', 'value' => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ), 'inline' => \1, };
+
+               if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
+               {
+                  push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
+                  push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
+               }
+
+               push @{$$embed{'fields'}}, { 'name' => 'Location', 'value' => "[GMaps](https://www.google.com/maps/\@$r->[12],$r->[13],11z)", 'inline' => \1, };
+	    }
 
             push @{$$embed{'fields'}}, { 'name' => 'VAC Bans', 'value' => $$result2{'players'}->[0]{'NumberOfVACBans'} . ' (' . duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60) . ' ago)', 'inline' => \1, } if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 );
             push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, } if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' );
