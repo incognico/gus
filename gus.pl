@@ -93,6 +93,7 @@ my $maps = {
    'g-ara1' => '<:nani:603508663562272788> G-ARA',
    'hidoi_map1' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
    'hidoi_map2' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
+   'island' => ':island: Comfy, island',
    'otokotati_no_kouzan' => '<:piginablanket:542462830163656764> Otokotati No Kouzan',
    'pizza_ya_san1' => ':pizza: Pizza Ya San: 1',
    'pizza_ya_san2' => ':pizza: Pizza Ya San: 2',
