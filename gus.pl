@@ -135,6 +135,8 @@ my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 
 ###
 
+my $lastmap;
+
 my $gi = MaxMind::DB::Reader->new(file => $$config{'geo'});
 
 my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
@@ -148,7 +150,7 @@ open my $fh, '<', $$config{'fromsven'} or die;
 
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
-   interval => 0.5,
+   interval => 0.25,
 
    on_initial => sub {
       my ( $self ) = @_;
@@ -201,11 +203,12 @@ my $filestream = IO::Async::FileStream->new(
             
             $discord->send_message( $$config{'chatlinkchan'}, $message );
 
-            if ( exists $$maps{$data[1]} )
-	    {
-	       my $s = '';
-	       $s = 's' if ( $data[2] > 1 );
-               $discord->send_message( $$config{'mainchan'}, "**$$maps{$data[1]}** campaign has started with **$data[2]** player$s!" );
+            if ( exists $$maps{$data[1]} && $$maps{$data[1]} ne $lastmap )
+            {
+               my $s = '';
+               $s = 's' if ( $data[2] > 1 );
+               $discord->send_message( $$config{'mainchan'}, "**$$maps{$data[1]}** has started with **$data[2]** player$s!" );
+               $lastmap = $$maps{$data[1]};
             }
          }
          else
@@ -220,10 +223,10 @@ my $filestream = IO::Async::FileStream->new(
             $msg =~ s/\@+everyone/everyone/g;
             $msg =~ s/\@+here/here/g;
 
-	    $nick =~ s/`//g;
+       $nick =~ s/`//g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
 
-            my $final = "` $nick`  $msg";
+            my $final = "`$nick`  $msg";
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
@@ -353,7 +356,7 @@ sub discord_on_message_create
                 'fields' => [
                 {
                    'name'   => 'Name',
-                   'value'  => "**[".$r->[2]."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
+                   'value'  => "**[".Encode::decode_utf8($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
                    'inline' => \1,
                  },
                  {
@@ -369,26 +372,20 @@ sub discord_on_message_create
                  ],
             };
 
-	    if ( $nsa )
-	    {
-#               $$embed{'image'} = {
-#                   'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$r->[12],$r->[13]&zoom=8&key=$$config{'gmapikey'}", # unsafe
-#                   'width' => 360,
-#                   'height' => 80,
-#               };
-
+            if ( $nsa )
+            {
                $$embed{'footer'} = { 'text' => , 'STEAM_' . $r->[1] };
 
                push @{$$embed{'fields'}}, { 'name' => 'Time on TWLZ', 'value' => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ), 'inline' => \1, };
 
                if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
                {
-                  push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
-                  push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
+                   push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
+                   push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
                }
 
                push @{$$embed{'fields'}}, { 'name' => 'Location', 'value' => "[GMaps](https://www.google.com/maps/\@$r->[12],$r->[13],11z)", 'inline' => \1, };
-	    }
+            }
 
             push @{$$embed{'fields'}}, { 'name' => 'VAC Bans', 'value' => $$result2{'players'}->[0]{'NumberOfVACBans'} . ' (' . duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60) . ' ago)', 'inline' => \1, } if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 );
             push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, } if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' );
@@ -501,11 +498,6 @@ sub discord_on_message_create
                 'width' => 38,
                 'height' => 38,
              },
-             'image' => {
-                'url' => "https://maps.googleapis.com/maps/api/staticmap?size=360x80&scale=2&language=en&region=ps&center=$lat,$lon&zoom=8",
-                'width' => 360,
-                'height' => 80,
-             },
              'footer' => {
                 'text' => "Location altitude: " . sprintf('%dm / %dft', int($alt), int($alt * 3.2808)),
              },
@@ -560,7 +552,8 @@ sub discord_on_message_create
          my $type = defined $1 ? lc($1) : 'random';
          $type =~ s/ //g;
 
-         my @types = qw(hass hmidriff pgif 4k hentai holo hneko neko hkitsune kemonomimi anal hanal gonewild kanna ass pussy thigh hthigh gah coffee food);
+         #my @types = qw(hass hmidriff pgif 4k hentai holo hneko neko hkitsune kemonomimi anal hanal gonewild kanna ass pussy thigh hthigh gah coffee food);
+         my @types = qw(hass hmidriff hentai holo hneko neko hkitsune kemonomimi hanal kanna thigh hthigh coffee food);
          $type = $types[rand @types] if ( $type eq 'random' );
 
          if ( $type eq 'help' || !( $type ~~ @types ) )
