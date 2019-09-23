@@ -57,8 +57,8 @@ my $config = {
    geo          => "$ENV{HOME}/gus/GeoLite2-City.mmdb",
 
    discord => {
-     client_id => '',
-     owner_id => '373912992758235148',
+      client_id => '',
+      owner_id  => '373912992758235148',
    }
 };
 
@@ -126,10 +126,10 @@ my @winddesc = (
    'Hurricane'
 );
 
-my $reacts = {
-   264851156973387788 => 'biba:458415471130050565', # biba
-   150294740703772672 => '🏳️‍🌈', # prid
-};
+#my $reacts = {
+#   264851156973387788 => 'biba:458415471130050565', # biba
+#   150294740703772672 => '🏳️‍🌈', # prid
+#};
 
 my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 
@@ -150,7 +150,7 @@ open my $fh, '<', $$config{'fromsven'} or die;
 
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
-   interval => 0.25,
+   interval => 0.15,
 
    on_initial => sub {
       my ( $self ) = @_;
@@ -217,14 +217,14 @@ my $filestream = IO::Async::FileStream->new(
 
             $line =~ /<(.+?)><(.+?):.+?><(.+?)> (.+)/;
             my $nick = $1;
-            my $msg = $4;
-            my $r = $gi->record_for_address($2);
+            my $msg  = $4;
+            my $r    = $gi->record_for_address($2);
 
             $msg =~ s/\@+everyone/everyone/g;
             $msg =~ s/\@+here/here/g;
 
-       $nick =~ s/`//g;
-            $msg =~ s/$discord_markdown_pattern/\\$1/g;
+            $nick =~ s/`//g;
+            $msg  =~ s/$discord_markdown_pattern/\\$1/g;
 
             my $final = "`$nick`  $msg";
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
@@ -271,10 +271,10 @@ sub discord_on_message_create
 #         return if ( $dirty );
 #      }
 
-      if ( $channel eq $$config{'kekchan'} )
-      {
-         $discord->add_reaction( $channel, $msgid, $$reacts{$id} ) if ( exists $$reacts{$id} );
-      }
+#      if ( $channel eq $$config{'kekchan'} )
+#      {
+#         $discord->add_reaction( $channel, $msgid, $$reacts{$id} ) if ( exists $$reacts{$id} );
+#      }
 
       if ( $channel eq $$config{'chatlinkchan'} )
       {
