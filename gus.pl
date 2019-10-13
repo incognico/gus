@@ -102,6 +102,7 @@ my $maps = {
    'pv_c1m1' => ':regional_indicator_v: Poke 646: Vendetta',
    'quad_f' => ':black_large_square: Quad',
    'ra_quad' => ':black_square_button: Real Adrenaline Quad',
+   'ressya_no_tabi' => ':train2::camera_with_flash: Ressya No Tabi',
    'restriction01' => ':radioactive: Restriction',
    'road_to_shinnen' => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
    'rust_islands_b7' => '<:eecat:460442390457483274> R U S T',
