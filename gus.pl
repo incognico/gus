@@ -97,11 +97,12 @@ my $maps = {
    'otokotati_no_kouzan' => ':hammer_pick: Otokotati No Kouzan',
    'pizza_ya_san1' => ':pizza: Pizza Ya San: 1',
    'pizza_ya_san2' => ':pizza: Pizza Ya San: 2',
-   'po_c0m1' => ':regional_indicator_p: Poke 646',
+   'po_c1m1' => ':regional_indicator_p: Poke 646',
    'projectg1' => ':dromedary_camel: Project: Guilty',
    'pv_c1m1' => ':regional_indicator_v: Poke 646: Vendetta',
    'quad_f' => ':black_large_square: Quad',
    'ra_quad' => ':black_square_button: Real Adrenaline Quad',
+   'ressya_no_tabi' => ':train2::camera_with_flash: Ressya No Tabi',
    'restriction01' => ':radioactive: Restriction',
    'road_to_shinnen' => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
    'rust_islands_b7' => '<:eecat:460442390457483274> R U S T',
@@ -581,7 +582,7 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, $$i{message} ) if (defined $$i{success} && $$i{success});
       }
-      elsif ( $msg =~ /^!ud (.+)/i )
+      elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
       {
          my $input    = $1;
          my $query    = uri_escape("$input");
