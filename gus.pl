@@ -111,7 +111,7 @@ my $maps = {
    'sa13' => '<:Kannasuicide:603609334080995338> SA13',
    'sc_royals1' => ':eye: Royals',
    'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
-   'th_ep1_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
+   'th_ep1_01' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape' => '<:KannaSpook:603856338132664321> They Hunger: Escape',
@@ -599,7 +599,7 @@ sub discord_on_message_create
                 for (0..3)
                 {
                    $$ud{list}[$_]{definition} =~ s/\s+/ /g;
-                   $msg .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 399) ? substr($$ud{list}[$_]{definition}, 0, 400) . '...' : $$ud{list}[$_]{definition});
+                   $msg .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 399) ? substr($$ud{list}[$_]{definition}, 0, 666) . '...' : $$ud{list}[$_]{definition});
                    last unless (defined $$ud{list}[$_+1]{definition});
                 }
 
