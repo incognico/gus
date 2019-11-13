@@ -242,7 +242,7 @@ my $filestream = IO::Async::FileStream->new(
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
-            $discord->send_message( $$config{'chatlinkchan'}, ':flag_' . lc($r->{country}{iso_code}) . ': ' . $final );
+            $discord->send_message( $$config{'chatlinkchan'}, ':flag_' . $r->{country}{iso_code} ? lc($r->{country}{iso_code}) : 'white' . ': ' . $final );
          }
       }
       return 0;
