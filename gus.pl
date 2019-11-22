@@ -242,7 +242,7 @@ my $filestream = IO::Async::FileStream->new(
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
-            $discord->send_message( $$config{'chatlinkchan'}, ':flag_' . lc($r->{country}{iso_code}) . ': ' . $final );
+            $discord->send_message( $$config{'chatlinkchan'}, ':flag_' . ($r->{country}{iso_code} ? lc($r->{country}{iso_code}) : 'white') . ': ' . $final );
          }
       }
       return 0;
@@ -373,7 +373,7 @@ sub discord_on_message_create
                  },
                  {
                     'name'   => 'Country',
-                    'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ":flag_".lc($r->[11]).":",
+                    'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':',
                     'inline' => \1,
                  },
                  {
