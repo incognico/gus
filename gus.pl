@@ -414,7 +414,7 @@ sub discord_on_message_create
              $discord->send_message( $channel, "`No results`" );
          }
       }
-      elsif ( $msg =~ /^!status/i )
+      elsif ( $msg =~ /^!stat(us|su)/i )
       {
          my $if       = IO::Interface::Simple->new('lo');
          my $addr     = $if->address;
