@@ -2,10 +2,10 @@
 
 # Gus - Discord bot for the twilightzone Sven Co-op server
 #
-# Required "moo" branch of https://github.com/vsTerminus/Mojo-Discord
+# Requires https://github.com/vsTerminus/Mojo-Discord
 # Based on https://github.com/vsTerminus/Goose
 #
-# Copyright 2017-2019, Nico R. Wohlgemuth <nico@lifeisabug.com>
+# Copyright 2017-2020, Nico R. Wohlgemuth <nico@lifeisabug.com>
 
 use v5.16.0;
 
@@ -614,6 +614,61 @@ sub discord_on_message_create
          {
             $discord->send_message( $channel, '`API error`' );
          }
+      }
+      elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i ) {
+         my $ncov = 'http://lab.isaaclin.cn/nCoV/api/overall?latest=1';
+         my $ua = LWP::UserAgent->new;
+         $ua->agent( 'Mozilla/5.0' );
+         my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
+         my $i = from_json ( $r->content );
+
+         if ( defined $$i{success} && $$i{success} ) {
+            my $embed = {
+               'color' => '15158332',
+               'provider' => {
+                  'name' => 'dxy.cn',
+                  'url' => 'http://lab.isaaclin.cn/nCoV/',
+                },
+                'thumbnail' => {
+                   'url' => 'https://cdn.discordapp.com/attachments/512991515744665600/671457808788619312/unknown.png',
+                },
+                'footer' => {
+                   'text' => 'Last updated about '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago',
+                },
+                'fields' => [
+                 {
+                    'name'   => '**Infected (Confirmed)**',
+                    'value'  => $$i{results}[0]{confirmedCount},
+                    'inline' => \0,
+                 },
+                 {
+                    'name'   => '**Suspected**',
+                    'value'  => $$i{results}[0]{suspectedCount},
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => '**Dead**',
+                    'value'  => $$i{results}[0]{deadCount},
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => '**Cured**',
+                    'value'  => $$i{results}[0]{curedCount},
+                    'inline' => \1,
+                 },
+                 ],
+            };
+            my $message = {
+               'content' => '',
+               'embed' => $embed,
+            };
+
+            $discord->send_message( $channel, $message );
+         }
+         else {
+            $discord->send_message( $channel,  'Error fetching data' );
+         }
+
       }
       elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i ) {
          my ($qid, $stats);
