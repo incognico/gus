@@ -2,7 +2,7 @@
 
 # Gus - Discord bot for the twilightzone Sven Co-op server
 #
-# Requires https://github.com/vsTerminus/Mojo-Discord
+# Requires https://github.com/vsTerminus/Mojo-Discord (release v1)
 # Based on https://github.com/vsTerminus/Goose
 #
 # Copyright 2017-2020, Nico R. Wohlgemuth <nico@lifeisabug.com>
@@ -69,6 +69,9 @@ my $discord = Mojo::Discord->new(
    'name'      => 'Gus',
    'reconnect' => 1,
    'verbose'   => 0,
+#   'logdir'    => "$ENV{HOME}/gus",
+#   'logfile'   => 'discord.log',
+#   'loglevel'  => 'info',
    'callbacks' => {
      'READY'          => sub { discord_on_ready(shift) },
      'GUILD_CREATE'   => sub { discord_on_guild_create(shift) },
@@ -147,7 +150,7 @@ my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 
 ###
 
-my $lastmap;
+my $lastmap = '';
 
 my $gi = MaxMind::DB::Reader->new(file => $$config{'geo'});
 
@@ -184,7 +187,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
+            $discord->status_update( { 'name' => "$data[1] @ twlz Sven Co-op", type => 0 } );
 
             return if ( $data[2] eq '0' );
 
@@ -578,9 +581,21 @@ sub discord_on_message_create
          my $ua = LWP::UserAgent->new;
          $ua->agent( 'Mozilla/5.0' );
          my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
-         my $i = from_json ( $r->content );
+         unless ( $r->is_success )
+         {
+            $discord->send_message( $channel,  '`Error fetching data`' );
+            return;
+         }
+         my $i = from_json ( $r->decoded_content );
 
-         $discord->send_message( $channel, $$i{message} ) if (defined $$i{success} && $$i{success});
+         if ( defined $$i{success} && $$i{success} )
+         {
+            $discord->send_message( $channel, $$i{message} );
+         }
+         else
+         {
+            $discord->send_message( $channel,  '`Error fetching data`' );
+         }
       }
       elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
       {
@@ -615,19 +630,26 @@ sub discord_on_message_create
             $discord->send_message( $channel, '`API error`' );
          }
       }
-      elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i ) {
-         my $ncov = 'http://lab.isaaclin.cn/nCoV/api/overall?latest=1';
+      elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i )
+      {
+         my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
          my $ua = LWP::UserAgent->new;
          $ua->agent( 'Mozilla/5.0' );
          my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
-         my $i = from_json ( $r->content );
+         unless ( $r->is_success )
+         {
+            $discord->send_message( $channel,  '`Error fetching data`' );
+            return;
+         }
+         my $i = from_json ( $r->decoded_content );
 
-         if ( defined $$i{success} && $$i{success} ) {
+         if ( defined $$i{success} && $$i{success} )
+         {
             my $embed = {
                'color' => '15158332',
                'provider' => {
                   'name' => 'dxy.cn',
-                  'url' => 'http://lab.isaaclin.cn/nCoV/',
+                  'url' => 'https://lab.isaaclin.cn/nCoV/',
                 },
                 'thumbnail' => {
                    'url' => 'https://cdn.discordapp.com/attachments/512991515744665600/671457808788619312/unknown.png',
@@ -666,11 +688,12 @@ sub discord_on_message_create
             $discord->send_message( $channel, $message );
          }
          else {
-            $discord->send_message( $channel,  'Error fetching data' );
+            $discord->send_message( $channel,  '`Error fetching data`' );
          }
 
       }
-      elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i ) {
+      elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i )
+      {
          my ($qid, $stats);
          ($qid = $1) =~ s/[^0-9]//g;
 
@@ -756,7 +779,7 @@ sub discord_on_message_create
 
          $discord->send_message( $channel, $message );
 
-#      main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
+#     main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
       }
       elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
       {
@@ -784,10 +807,10 @@ sub discord_on_message_create
 #
 #   unless ( exists $author->{'bot'} && $author->{'bot'} )
 #   {
-#   if ( $channel eq $$config{'mainchan'} )
-#   {
-#      clean($channel, $msgid, $msg);
-#   }
+#      if ( $channel eq $$config{'mainchan'} )
+#      {
+#         clean($channel, $msgid, $msg);
+#      }
 #   }
 #}
 
