@@ -187,7 +187,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            $discord->status_update( { 'name' => "$data[1] @ twlz Sven Co-op", type => 0 } );
+            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
 
             return if ( $data[2] eq '0' );
 
