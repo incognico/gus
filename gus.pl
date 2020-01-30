@@ -2,7 +2,7 @@
 
 # Gus - Discord bot for the twilightzone Sven Co-op server
 #
-# Requires https://github.com/vsTerminus/Mojo-Discord (release v1)
+# Requires https://github.com/vsTerminus/Mojo-Discord (release v3+)
 # Based on https://github.com/vsTerminus/Goose
 #
 # Copyright 2017-2020, Nico R. Wohlgemuth <nico@lifeisabug.com>
@@ -70,15 +70,15 @@ my $discord = Mojo::Discord->new(
    'name'      => 'Gus',
    'reconnect' => 1,
    'verbose'   => 0,
-#   'logdir'    => "$ENV{HOME}/gus",
-#   'logfile'   => 'discord.log',
-#   'loglevel'  => 'info',
-   'callbacks' => {
-     'READY'          => sub { discord_on_ready(shift) },
-     'GUILD_CREATE'   => sub { discord_on_guild_create(shift) },
-     'MESSAGE_CREATE' => sub { discord_on_message_create(shift) },
+   'logdir'    => "$ENV{HOME}/gus",
+   'logfile'   => 'discord.log',
+   'loglevel'  => 'info',
+#   'callbacks' => {
+#     'READY'          => sub { discord_on_ready(shift) },
+#     'GUILD_CREATE'   => sub { discord_on_guild_create(shift) },
+#     'MESSAGE_CREATE' => sub { discord_on_message_create(shift) },
 #     'MESSAGE_UPDATE' => sub { discord_on_message_update(shift) },
-   },
+#   },
 );
 
 my $maps = {
@@ -188,7 +188,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            $discord->status_update( { 'game' => "$data[1] @ twlz Sven Co-op" } );
+            $discord->status_update( { 'name' => "$data[1] @ twlz Sven Co-op", type => 0 } );
 
             return if ( $data[2] eq '0' );
 
