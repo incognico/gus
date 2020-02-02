@@ -44,6 +44,7 @@ my $config = {
    game         => 'Sven Co-op @ twlz',
    chatlinkchan => '458683388887302155',
    mainchan     => '458323696910598167',
+   wufluchan    => '673626913864155187',
    kekchan      => '541343127550558228',
    ayayachan    => '459345843942588427',
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
@@ -599,15 +600,21 @@ sub discord_on_message_create
       }
       elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
       {
-         my $input    = $1;
-         my $query    = uri_escape("$input");
-         my $response = get("https://api.urbandictionary.com/v0/define?term=$query");
-
-         if ( $response )
+         my $input = $1;
+         my $query = uri_escape( $input );
+         my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0 } );
+         $ua->agent( 'Mozilla/5.0' );
+         my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
+         unless ( $r->is_success )
          {
-            my $ud = decode_json($response);
+            $discord->send_message( $channel,  '`Error fetching data`' );
+            return;
+         }
+         my $ud = from_json ( $r->decoded_content );
 
-            if (defined $$ud{list}[0]{definition})
+         if ( defined $$ud{list} )
+         {
+            if ( defined $$ud{list}[0]{definition} )
             {
                 my $msg = '';
 
@@ -627,10 +634,10 @@ sub discord_on_message_create
          }
          else
          {
-            $discord->send_message( $channel, '`API error`' );
+            $discord->send_message( $channel, '`Error fetching data`' );
          }
       }
-      elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i )
+      elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
       {
          my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
          my $ua = LWP::UserAgent->new;
@@ -674,7 +681,7 @@ sub discord_on_message_create
                     'inline' => \1,
                  },
                  {
-                    'name'   => '**Cured**',
+                    'name'   => '**Recovered**',
                     'value'  => $$i{results}[0]{curedCount},
                     'inline' => \1,
                  },
