@@ -600,7 +600,7 @@ sub discord_on_message_create
             }
             my $ud = from_json ( $r->decoded_content );
 
-            if ( defined $$ud{list} )
+            if ( !defined $$ud{error} && defined $$ud{list} )
             {
                if ( defined $$ud{list}[0]{definition} )
                {
