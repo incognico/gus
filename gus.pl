@@ -73,12 +73,6 @@ my $discord = Mojo::Discord->new(
    'logdir'    => "$ENV{HOME}/gus",
    'logfile'   => 'discord.log',
    'loglevel'  => 'info',
-#   'callbacks' => {
-#     'READY'          => sub { discord_on_ready(shift) },
-#     'GUILD_CREATE'   => sub { discord_on_guild_create(shift) },
-#     'MESSAGE_CREATE' => sub { discord_on_message_create(shift) },
-#     'MESSAGE_UPDATE' => sub { discord_on_message_update(shift) },
-#   },
 );
 
 my $maps = {
@@ -160,13 +154,16 @@ my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
    sqlite_open_flags => SQLITE_OPEN_READONLY,
 });
 
+discord_on_ready();
+discord_on_message_create();
+
 $discord->init();
 
 open my $fh, '<', $$config{'fromsven'} or die;
 
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
-   interval => 0.15,
+   interval => 0.25,
 
    on_initial => sub {
       my ( $self ) = @_;
@@ -254,7 +251,7 @@ my $filestream = IO::Async::FileStream->new(
 );
 
 my $loop = IO::Async::Loop::Mojo->new();
-$loop->add( $filestream );
+$loop->add($filestream);
 $loop->run unless (Mojo::IOLoop->is_running);
 
 close $fh;
@@ -265,146 +262,287 @@ exit;
 
 sub discord_on_message_create
 {
-   my ($hash) = @_;
-
-   my $id = $hash->{'author'}->{'id'};
-   my $author = $hash->{'author'};
-   my $msg = $hash->{'content'};
-   my $msgid = $hash->{'id'};
-   my $channel = $hash->{'channel_id'};
-   my @mentions = @{$hash->{'mentions'}};
-
-   add_user($_ ) for(@mentions);
-
-   unless ( exists $author->{'bot'} && $author->{'bot'} )
+   $discord->gw->on('MESSAGE_CREATE' => sub
    {
-      $msg =~ s/\@+everyone/everyone/g;
-      $msg =~ s/\@+here/here/g;
+      my ($gw, $hash) = @_;
 
-#      if ( $channel eq $$config{'mainchan'} )
-#      {
-#         my $dirty = clean($channel, $msgid, $msg);
-#         return if ( $dirty );
-#      }
+      my $id = $hash->{'author'}->{'id'};
+      my $author = $hash->{'author'};
+      my $msg = $hash->{'content'};
+      my $msgid = $hash->{'id'};
+      my $channel = $hash->{'channel_id'};
+      my @mentions = @{$hash->{'mentions'}};
 
-#      if ( $channel eq $$config{'kekchan'} )
-#      {
-#         $discord->add_reaction( $channel, $msgid, $$reacts{$id} ) if ( exists $$reacts{$id} );
-#      }
+      add_user($_) for(@mentions);
 
-      if ( $channel eq $$config{'chatlinkchan'} )
+      unless ( exists $author->{'bot'} && $author->{'bot'} )
       {
-         $msg =~ s/`//g;
-         $msg =~ s/%/%%/g;
-         $msg =~ s/<@(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g; # user/nick
-         $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
-         $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
-         $msg =~ s/<(:.+:)\d+>/$1/g; # emoji
+         $msg =~ s/\@+everyone/everyone/g;
+         $msg =~ s/\@+here/here/g;
 
-         say localtime(time) . " <- <$$author{'username'}> $msg";
-
-         open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'}) or die;
-         say $tosvenfh "(DISCORD) $$author{'username'}: $msg";
-         close $tosvenfh;
-      }
-      elsif ( $msg =~ /^!player (.+)/i )
-      {
-         my $param = $1;
-         my ($stmt, @bind, $r);
-
-         my $nsa;
-         $nsa = 1 if ( $channel eq $$config{'ayayachan'} );
-
-         if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
+         if ( $channel eq $$config{'chatlinkchan'} )
          {
-            $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
-            @bind = ( "$1" );
+            $msg =~ s/`//g;
+            $msg =~ s/%/%%/g;
+            $msg =~ s/<@(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g; # user/nick
+            $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
+            $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
+            $msg =~ s/<(:.+:)\d+>/$1/g; # emoji
+
+            say localtime(time) . " <- <$$author{'username'}> $msg";
+
+            open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'}) or die;
+            say $tosvenfh "(DISCORD) $$author{'username'}: $msg";
+            close $tosvenfh;
          }
-         else
+         elsif ( $msg =~ /^!player (.+)/i )
          {
-            $stmt = "SELECT * FROM stats WHERE name LIKE ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
-            @bind = ( "%$1%" );
-         }
+            my $param = $1;
+            my ($stmt, @bind, $r);
 
-         $r = $dbh->selectrow_arrayref( $stmt, {}, @bind );
+            my $nsa;
+            $nsa = 1 if ( $channel eq $$config{'ayayachan'} );
 
-         if ( defined $r )
-         {
-            (my $url = $$config{'steamapiurl'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
-            my $content = get( $url );
-
-            unless ( defined $content )
+            if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
             {
-               $discord->send_message( $channel, "`Couldn't query Steam Player API`" );
-               return;
+               $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
+               @bind = ( "$1" );
             }
- 
-            my $result = decode_json( $content );
-
-            (my $url2 = $$config{'steamapiurl2'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
-            my $content2 = get( $url2 );
-
-            unless ( defined $content2 )
+            else
             {
-               $discord->send_message( $channel, "`Couldn't query Steam Bans API`" );
-               return;
+               $stmt = "SELECT * FROM stats WHERE name LIKE ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
+               @bind = ( "%$1%" );
             }
 
-            my $result2 = decode_json( $content2 );
+            $r = $dbh->selectrow_arrayref( $stmt, {}, @bind );
 
-            my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'}, result_type => 'locality|sublocality|administrative_area_level_1|country|political');
+            if ( defined $r )
+            {
+               (my $url = $$config{'steamapiurl'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
+               my $content = get( $url );
+
+               unless ( defined $content )
+               {
+                  $discord->send_message( $channel, "`Couldn't query Steam Player API`" );
+                  return;
+               }
+
+               my $result = decode_json( $content );
+
+               (my $url2 = $$config{'steamapiurl2'} . $r->[0] ) =~ s/XXXSTEAMAPIKEYXXX/$$config{'steamapikey'}/;
+               my $content2 = get( $url2 );
+
+               unless ( defined $content2 )
+               {
+                  $discord->send_message( $channel, "`Couldn't query Steam Bans API`" );
+                  return;
+               }
+
+               my $result2 = decode_json( $content2 );
+
+               my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'}, result_type => 'locality|sublocality|administrative_area_level_1|country|political');
+
+               my $input;
+               eval { $input = $geo->reverse_geocode( latlng => sprintf('%.3f,%.3f', $r->[12], $r->[13]) ) };
+
+               my $loc = 'Unknown';
+               $loc = $input->{formatted_address} if ( $input );
+
+               my $embed = {
+                  'color' => '15844367',
+                  'provider' => {
+                     'name' => 'twlz',
+                     'url' => 'https://twlz.lifeisabug.com',
+                   },
+                   'thumbnail' => {
+                      'url' => $$result{'response'}{'players'}->[0]{avatarfull},
+                   },
+                   'fields' => [
+                   {
+                      'name'   => 'Name',
+                      'value'  => "**[".Encode::decode_utf8($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
+                      'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Country',
+                       'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':',
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Last Seen',
+                       'value'  => defined $r->[16] ? $r->[16] : 'Unknown',
+                       'inline' => \1,
+                    },
+                    ],
+               };
+
+               if ( $nsa )
+               {
+                  $$embed{'footer'} = { 'text' => , 'STEAM_' . $r->[1] };
+
+                  push @{$$embed{'fields'}}, { 'name' => 'Time on TWLZ', 'value' => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ), 'inline' => \1, };
+
+                  if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
+                  {
+                      push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
+                      push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
+                  }
+
+                  push @{$$embed{'fields'}}, { 'name' => 'Location', 'value' => "[GMaps](https://www.google.com/maps/\@$r->[12],$r->[13],11z)", 'inline' => \1, };
+               }
+
+               push @{$$embed{'fields'}}, { 'name' => 'VAC Bans', 'value' => $$result2{'players'}->[0]{'NumberOfVACBans'} . ' (' . duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60) . ' ago)', 'inline' => \1, } if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 );
+               push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, } if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' );
+
+               my $message = {
+                  'content' => '',
+                  'embed' => $embed,
+               };
+
+               $discord->send_message( $channel, $message );
+            }
+            else
+            {
+                $discord->send_message( $channel, "`No results`" );
+            }
+         }
+         elsif ( $msg =~ /^!stat(us|su)/i )
+         {
+            my $if       = IO::Interface::Simple->new('lo');
+            my $addr     = $if->address;
+            my $port     = $$config{'serverport'};
+            my $ap       = "$addr:$port";
+            my $encoding = term_encoding;
+
+            my $q = Net::SRCDS::Queries->new(
+               encoding => $encoding,
+               timeout  => 0.3,
+            );
+
+            $q->add_server( $addr, $port );
+            my $infos = $q->get_all;
+
+            unless ( defined $$infos{$ap}{'info'} )
+            {
+               $discord->send_message( $channel, "`Couldn't query server`" );
+            }
+            else
+            {
+               my $diff = '';
+               $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
+               my $msg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**$diff";
+
+               $discord->send_message( $channel, $msg );
+            }
+         }
+         elsif ( $msg =~ /^!w(?:eather)? (.+)/i )
+         {
+            my ($loc, $lat, $lon);
+            my $alt = 0;
+
+            my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
 
             my $input;
-            eval { $input = $geo->reverse_geocode( latlng => sprintf('%.3f,%.3f', $r->[12], $r->[13]) ) };
+            eval { $input = $geo->geocode(location => "$1") };
 
-            my $loc = 'Unknown';
-            $loc = $input->{formatted_address} if ( $input );
+            unless ( $input )
+            {
+               $discord->send_message( $channel, '`No matching location`' );
+               return;
+            }
+
+            $loc = $input->{formatted_address};
+            $lat = $input->{geometry}{location}{lat};
+            $lon = $input->{geometry}{location}{lng};
+
+            my $json = get( "https://maps.googleapis.com/maps/api/elevation/json?key=$$config{'gmapikey'}&locations=" . $lat . ',' . $lon );
+
+            if ($json)
+            {
+               my $elevdata;
+               eval { $elevdata = decode_json($json) };
+               $alt = $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
+            }
+
+            my $flag = 'flag_white';
+            for ( @{$input->{address_components}} )
+            {
+               $flag = 'flag_' . lc($_->{short_name}) if ( 'country' ~~ @{$_->{types}} );
+            }
+
+            my $fcloc;
+            eval { $fcloc = Weather::YR->new(lat => $lat, lon => $lon, msl => int($alt), tz => DateTime::TimeZone->new(name => 'Europe/Oslo'), lang => 'en') };
+
+            unless ($fcloc)
+            {
+               $discord->send_message( $channel, '`Error fetching weather data, try again later`' );
+               return;
+            }
+
+            my $fc = $fcloc->location_forecast->now;
+
+            my $beaufort   = $fc->wind_speed->beaufort;
+            my $celsius    = $fc->temperature->celsius;
+            my $cloudiness = $fc->cloudiness->percent;
+            my $fahrenheit = $fc->temperature->fahrenheit;
+            my $fog        = $fc->fog->percent;
+            my $humidity   = $fc->humidity->percent;
+            my $symbol     = $fc->precipitation->symbol->text;
+            my $symbolid   = $fc->precipitation->symbol->number;
+            my $winddir    = $fc->wind_direction->name;
 
             my $embed = {
                'color' => '15844367',
                'provider' => {
-                  'name' => 'twlz',
-                  'url' => 'https://twlz.lifeisabug.com',
+                  'name' => 'yr.no',
+                  'url' => 'https://www.yr.no/',
                 },
                 'thumbnail' => {
-                   'url' => $$result{'response'}{'players'}->[0]{avatarfull},
+                   'url' => "https://api.met.no/weatherapi/weathericon/1.1/?symbol=$symbolid&content_type=image/png",
+                   'width' => 38,
+                   'height' => 38,
+                },
+                'footer' => {
+                   'text' => "Location altitude: " . sprintf('%dm / %dft', int($alt), int($alt * 3.2808)),
                 },
                 'fields' => [
                 {
-                   'name'   => 'Name',
-                   'value'  => "**[".Encode::decode_utf8($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
-                   'inline' => \1,
+                   'name'   => ( $flag eq 'flag_se' ? ':gay_pride_flag:' : ":$flag:" ) . ' Weather for:',
+                   'value'  => "**[$loc](https://www.google.com/maps/\@$lat,$lon,13z)**",
+                   'inline' => \0,
                  },
                  {
-                    'name'   => 'Country',
-                    'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':',
+                    'name'   => 'Temperature',
+                    'value'  => sprintf('**%.1f°C** / **%.1f°F**', $celsius, $fahrenheit),
                     'inline' => \1,
                  },
                  {
-                    'name'   => 'Last Seen',
-                    'value'  => defined $r->[16] ? $r->[16] : 'Unknown',
+                    'name'   => 'Symbol',
+                    'value'  => $symbol,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Cloudiness',
+                    'value'  => sprintf('%u%%', $cloudiness),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Humidity',
+                    'value'  => sprintf('%u%%', $humidity),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Fog',
+                    'value'  => sprintf('%u%%', $fog),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Wind',
+                    'value'  => sprintf('%s from %s', $winddesc[$beaufort], $winddir),
                     'inline' => \1,
                  },
                  ],
             };
-
-            if ( $nsa )
-            {
-               $$embed{'footer'} = { 'text' => , 'STEAM_' . $r->[1] };
-
-               push @{$$embed{'fields'}}, { 'name' => 'Time on TWLZ', 'value' => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ), 'inline' => \1, };
-
-               if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
-               {
-                   push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
-                   push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
-               }
-
-               push @{$$embed{'fields'}}, { 'name' => 'Location', 'value' => "[GMaps](https://www.google.com/maps/\@$r->[12],$r->[13],11z)", 'inline' => \1, };
-            }
-
-            push @{$$embed{'fields'}}, { 'name' => 'VAC Bans', 'value' => $$result2{'players'}->[0]{'NumberOfVACBans'} . ' (' . duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60) . ' ago)', 'inline' => \1, } if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 );
-            push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, } if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' );
 
             my $message = {
                'content' => '',
@@ -413,426 +551,254 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, $message );
          }
-         else
+         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{'kekchan'} )
          {
-             $discord->send_message( $channel, "`No results`" );
-         }
-      }
-      elsif ( $msg =~ /^!stat(us|su)/i )
-      {
-         my $if       = IO::Interface::Simple->new('lo');
-         my $addr     = $if->address;
-         my $port     = $$config{'serverport'};
-         my $ap       = "$addr:$port";
-         my $encoding = term_encoding;
+            my $type = defined $1 ? lc($1) : 'random';
+            $type =~ s/ //g;
 
-         my $q = Net::SRCDS::Queries->new(
-            encoding => $encoding,
-            timeout  => 0.3,
-         );
+            #my @types = qw(hass hmidriff pgif 4k hentai holo hneko neko hkitsune kemonomimi anal hanal gonewild kanna ass pussy thigh hthigh gah coffee food);
+            my @types = qw(hass hmidriff hentai holo hneko neko hkitsune kemonomimi hanal kanna thigh hthigh coffee food);
+            $type = $types[rand @types] if ( $type eq 'random' );
 
-         $q->add_server( $addr, $port );
-         my $infos = $q->get_all;
-
-         unless ( defined $$infos{$ap}{'info'} )
-         {
-            $discord->send_message( $channel, "`Couldn't query server`" );
-         }
-         else
-         {
-            my $diff = '';
-            $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
-            my $msg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**$diff";
-
-            $discord->send_message( $channel, $msg );
-         }
-      }
-      elsif ( $msg =~ /^!w(?:eather)? (.+)/i )
-      {
-         my ($loc, $lat, $lon);
-         my $alt = 0;
-
-         my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
-
-         my $input;
-         eval { $input = $geo->geocode(location => "$1") };
-
-         unless ( $input )
-         {
-            $discord->send_message( $channel, '`No matching location`' );
-            return;
-         }
-
-         $loc = $input->{formatted_address};
-         $lat = $input->{geometry}{location}{lat};
-         $lon = $input->{geometry}{location}{lng};
-
-         my $json = get( "https://maps.googleapis.com/maps/api/elevation/json?key=$$config{'gmapikey'}&locations=" . $lat . ',' . $lon );
-
-         if ($json)
-         {
-            my $elevdata;
-            eval { $elevdata = decode_json($json) };
-            $alt = $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
-         }
-
-         my $flag = 'flag_white';
-         for ( @{$input->{address_components}} )
-         {
-            $flag = 'flag_' . lc($_->{short_name}) if ( 'country' ~~ @{$_->{types}} );
-         }
-
-         my $fcloc;
-         eval { $fcloc = Weather::YR->new(lat => $lat, lon => $lon, msl => int($alt), tz => DateTime::TimeZone->new(name => 'Europe/Oslo'), lang => 'en') };
-
-         unless ($fcloc)
-         {
-            $discord->send_message( $channel, '`Error fetching weather data, try again later`' );
-            return;
-         }
-
-         my $fc = $fcloc->location_forecast->now;
-
-         my $beaufort   = $fc->wind_speed->beaufort;
-         my $celsius    = $fc->temperature->celsius;
-         my $cloudiness = $fc->cloudiness->percent;
-         my $fahrenheit = $fc->temperature->fahrenheit;
-         my $fog        = $fc->fog->percent;
-         my $humidity   = $fc->humidity->percent;
-         my $symbol     = $fc->precipitation->symbol->text;
-         my $symbolid   = $fc->precipitation->symbol->number;
-         my $winddir    = $fc->wind_direction->name;
-
-         my $embed = {
-            'color' => '15844367',
-            'provider' => {
-               'name' => 'yr.no',
-               'url' => 'https://www.yr.no/',
-             },
-             'thumbnail' => {
-                'url' => "https://api.met.no/weatherapi/weathericon/1.1/?symbol=$symbolid&content_type=image/png",
-                'width' => 38,
-                'height' => 38,
-             },
-             'footer' => {
-                'text' => "Location altitude: " . sprintf('%dm / %dft', int($alt), int($alt * 3.2808)),
-             },
-             'fields' => [
-             {
-                'name'   => ( $flag eq 'flag_se' ? ':gay_pride_flag:' : ":$flag:" ) . ' Weather for:',
-                'value'  => "**[$loc](https://www.google.com/maps/\@$lat,$lon,13z)**",
-                'inline' => \0,
-              },
-              {
-                 'name'   => 'Temperature',
-                 'value'  => sprintf('**%.1f°C** / **%.1f°F**', $celsius, $fahrenheit),
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Symbol',
-                 'value'  => $symbol,
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Cloudiness',
-                 'value'  => sprintf('%u%%', $cloudiness),
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Humidity',
-                 'value'  => sprintf('%u%%', $humidity),
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Fog',
-                 'value'  => sprintf('%u%%', $fog),
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Wind',
-                 'value'  => sprintf('%s from %s', $winddesc[$beaufort], $winddir),
-                 'inline' => \1,
-              },
-              ],
-         };
-
-         my $message = {
-            'content' => '',
-            'embed' => $embed,
-         };
-
-         $discord->send_message( $channel, $message );
-      }
-      elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{'kekchan'} )
-      {
-         my $type = defined $1 ? lc($1) : 'random';
-         $type =~ s/ //g;
-
-         #my @types = qw(hass hmidriff pgif 4k hentai holo hneko neko hkitsune kemonomimi anal hanal gonewild kanna ass pussy thigh hthigh gah coffee food);
-         my @types = qw(hass hmidriff hentai holo hneko neko hkitsune kemonomimi hanal kanna thigh hthigh coffee food);
-         $type = $types[rand @types] if ( $type eq 'random' );
-
-         if ( $type eq 'help' || !( $type ~~ @types ) )
-         {
-            $discord->send_message( $channel, "`One of: @{types}`" );
-            return;
-         }
-
-         my $neko = "https://nekobot.xyz/api/image?type=$type";
-         my $ua = LWP::UserAgent->new;
-         $ua->agent( 'Mozilla/5.0' );
-         my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
-         unless ( $r->is_success )
-         {
-            $discord->send_message( $channel,  '`Error fetching data`' );
-            return;
-         }
-         my $i = from_json ( $r->decoded_content );
-
-         if ( defined $$i{success} && $$i{success} )
-         {
-            $discord->send_message( $channel, $$i{message} );
-         }
-         else
-         {
-            $discord->send_message( $channel,  '`Error fetching data`' );
-         }
-      }
-      elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
-      {
-         my $input = $1;
-         my $query = uri_escape( $input );
-         my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0 } );
-         $ua->agent( 'Mozilla/5.0' );
-         my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
-         unless ( $r->is_success )
-         {
-            $discord->send_message( $channel,  '`Error fetching data`' );
-            return;
-         }
-         my $ud = from_json ( $r->decoded_content );
-
-         if ( defined $$ud{list} )
-         {
-            if ( defined $$ud{list}[0]{definition} )
+            if ( $type eq 'help' || !( $type ~~ @types ) )
             {
-                my $msg = '';
+               $discord->send_message( $channel, "`One of: @{types}`" );
+               return;
+            }
 
-                for (0..3)
-                {
-                   $$ud{list}[$_]{definition} =~ s/\s+/ /g;
-                   $msg .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 665) ? substr($$ud{list}[$_]{definition}, 0, 666) . '...' : $$ud{list}[$_]{definition});
-                   last unless (defined $$ud{list}[$_+1]{definition});
-                }
+            my $neko = "https://nekobot.xyz/api/image?type=$type";
+            my $ua = LWP::UserAgent->new;
+            $ua->agent( 'Mozilla/5.0' );
+            my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
+            unless ( $r->is_success )
+            {
+               $discord->send_message( $channel,  '`Error fetching data`' );
+               return;
+            }
+            my $i = from_json ( $r->decoded_content );
 
-                $discord->send_message( $channel, "```$msg```" );
+            if ( defined $$i{success} && $$i{success} )
+            {
+               $discord->send_message( $channel, $$i{message} );
             }
             else
             {
-               $discord->send_message( $channel, '`No match`' );
+               $discord->send_message( $channel,  '`Error fetching data`' );
             }
          }
-         else
+         elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
          {
-            $discord->send_message( $channel, '`Error fetching data`' );
-         }
-      }
-      elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
-      {
-         my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
-         my $ua = LWP::UserAgent->new;
-         $ua->agent( 'Mozilla/5.0' );
-         my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
-         unless ( $r->is_success )
-         {
-            $discord->send_message( $channel,  '`Error fetching data`' );
-            return;
-         }
-         my $i = from_json ( $r->decoded_content );
+            my $input = $1;
+            my $query = uri_escape( $input );
+            my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0 } );
+            $ua->agent( 'Mozilla/5.0' );
+            my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
+            unless ( $r->is_success )
+            {
+               $discord->send_message( $channel,  '`Error fetching data`' );
+               return;
+            }
+            my $ud = from_json ( $r->decoded_content );
 
-         if ( defined $$i{success} && $$i{success} )
+            if ( defined $$ud{list} )
+            {
+               if ( defined $$ud{list}[0]{definition} )
+               {
+                   my $msg = '';
+
+                   for (0..3)
+                   {
+                      $$ud{list}[$_]{definition} =~ s/\s+/ /g;
+                      $msg .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 665) ? substr($$ud{list}[$_]{definition}, 0, 666) . '...' : $$ud{list}[$_]{definition});
+                      last unless (defined $$ud{list}[$_+1]{definition});
+                   }
+
+                   $discord->send_message( $channel, "```$msg```" );
+               }
+               else
+               {
+                  $discord->send_message( $channel, '`No match`' );
+               }
+            }
+            else
+            {
+               $discord->send_message( $channel, '`Error fetching data`' );
+            }
+         }
+         elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
          {
+            my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
+            my $ua = LWP::UserAgent->new;
+            $ua->agent( 'Mozilla/5.0' );
+            my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
+            unless ( $r->is_success )
+            {
+               $discord->send_message( $channel,  '`Error fetching data`' );
+               return;
+            }
+            my $i = from_json ( $r->decoded_content );
+
+            if ( defined $$i{success} && $$i{success} )
+            {
+               my $embed = {
+                  'color' => '15158332',
+                  'provider' => {
+                     'name' => 'dxy.cn',
+                     'url' => 'https://lab.isaaclin.cn/nCoV/',
+                   },
+                   'thumbnail' => {
+                      'url' => 'https://cdn.discordapp.com/attachments/512991515744665600/671457808788619312/unknown.png',
+                   },
+                   'footer' => {
+                      'text' => 'Last updated about '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago',
+                   },
+                   'fields' => [
+                    {
+                       'name'   => '**Infected (Confirmed)**',
+                       'value'  => $$i{results}[0]{confirmedCount},
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => '**Suspected**',
+                       'value'  => $$i{results}[0]{suspectedCount},
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => '**Dead**',
+                       'value'  => $$i{results}[0]{deadCount},
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => '**Recovered**',
+                       'value'  => $$i{results}[0]{curedCount},
+                       'inline' => \1,
+                    },
+                    ],
+               };
+               my $message = {
+                  'content' => '',
+                  'embed' => $embed,
+               };
+
+               $discord->send_message( $channel, $message );
+            }
+            else {
+               $discord->send_message( $channel,  '`Error fetching data`' );
+            }
+
+         }
+         elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i )
+         {
+            my ($qid, $stats);
+            ($qid = $1) =~ s/[^0-9]//g;
+
+            unless ($qid) {
+               $discord->send_message( $channel, 'Invalid player ID');
+               return;
+            }
+
+            my $xonstaturl = 'https://stats.xonotic.org/player/';
+            my $json = get( $xonstaturl . $qid . '.json');
+
+            if ($json) {
+               eval { $stats = decode_json($json) };
+            }
+            else {
+               $discord->send_message( $channel, 'No response from server; Correct player ID?');
+               return;
+            }
+
+            my $snick   = $stats->[0]->{player}->{stripped_nick};
+            my $games   = $stats->[0]->{games_played}->{overall}->{games};
+            my $win     = $stats->[0]->{games_played}->{overall}->{wins};
+            my $loss    = $stats->[0]->{games_played}->{overall}->{losses};
+            my $pct     = $stats->[0]->{games_played}->{overall}->{win_pct};
+            my $kills   = $stats->[0]->{overall_stats}->{overall}->{total_kills};
+            my $deaths  = $stats->[0]->{overall_stats}->{overall}->{total_deaths};
+            my $ratio   = $stats->[0]->{overall_stats}->{overall}->{k_d_ratio};
+            my $elo     = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{elo}          : 0;
+            my $elot    = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{game_type_cd} : 0;
+            my $elog    = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{games}        : 0;
+            my $capr    = $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} ? $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} : 0;
+            my $favmap  = $stats->[0]->{fav_maps}->{overall}->{map_name};
+            my $favmapt = $stats->[0]->{fav_maps}->{overall}->{game_type_cd};
+            my $last    = $stats->[0]->{overall_stats}->{overall}->{last_played_fuzzy};
+
             my $embed = {
-               'color' => '15158332',
+               'color' => '15844367',
                'provider' => {
-                  'name' => 'dxy.cn',
-                  'url' => 'https://lab.isaaclin.cn/nCoV/',
+                  'name' => 'XonStat',
+                  'url' => 'https://stats.xonotic.org',
                 },
-                'thumbnail' => {
-                   'url' => 'https://cdn.discordapp.com/attachments/512991515744665600/671457808788619312/unknown.png',
+   #             'thumbnail' => {
+   #                'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
+   #                'width' => 38,
+   #                'height' => 38,
+   #             },
+                'image' => {
+                   'url' => "https://stats.xonotic.org/static/badges/$qid.png?" . time, # work around discord image caching
+                   'width' => 650,
+                   'height' => 70,
                 },
                 'footer' => {
-                   'text' => 'Last updated about '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago',
+                   'text' => "Last played: $last",
                 },
                 'fields' => [
                  {
-                    'name'   => '**Infected (Confirmed)**',
-                    'value'  => $$i{results}[0]{confirmedCount},
-                    'inline' => \0,
-                 },
-                 {
-                    'name'   => '**Suspected**',
-                    'value'  => $$i{results}[0]{suspectedCount},
+                    'name'   => 'Name',
+                    'value'  => "**[$snick]($xonstaturl$qid)**",
                     'inline' => \1,
                  },
                  {
-                    'name'   => '**Dead**',
-                    'value'  => $$i{results}[0]{deadCount},
+                    'name'   => 'Games Played',
+                    'value'  => $games,
                     'inline' => \1,
                  },
                  {
-                    'name'   => '**Recovered**',
-                    'value'  => $$i{results}[0]{curedCount},
+                    'name'   => 'Favourite Map',
+                    'value'  => sprintf('%s (%s)', $favmap, $favmapt),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Cap Ratio',
+                    'value'  => $capr ? sprintf('%.2f', $capr) : '-',
                     'inline' => \1,
                  },
                  ],
             };
+
             my $message = {
                'content' => '',
                'embed' => $embed,
             };
 
             $discord->send_message( $channel, $message );
-         }
-         else {
-            $discord->send_message( $channel,  '`Error fetching data`' );
-         }
 
+   #     main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
+         }
+         elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
+         {
+            my (@x, $y);
+
+            $msg =~ s/`//g;
+            $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
+            $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
+
+            $discord->send_message( $channel, "`@x`" );
+         }
       }
-      elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i )
-      {
-         my ($qid, $stats);
-         ($qid = $1) =~ s/[^0-9]//g;
-
-         unless ($qid) {
-            $discord->send_message( $channel, 'Invalid player ID');
-            return;
-         }
-
-         my $xonstaturl = 'https://stats.xonotic.org/player/';
-         my $json = get( $xonstaturl . $qid . '.json');
-
-         if ($json) {
-            eval { $stats = decode_json($json) };
-         }
-         else {
-            $discord->send_message( $channel, 'No response from server; Correct player ID?');
-            return;
-         }
-
-         my $snick   = $stats->[0]->{player}->{stripped_nick};
-         my $games   = $stats->[0]->{games_played}->{overall}->{games};
-         my $win     = $stats->[0]->{games_played}->{overall}->{wins};
-         my $loss    = $stats->[0]->{games_played}->{overall}->{losses};
-         my $pct     = $stats->[0]->{games_played}->{overall}->{win_pct};
-         my $kills   = $stats->[0]->{overall_stats}->{overall}->{total_kills};
-         my $deaths  = $stats->[0]->{overall_stats}->{overall}->{total_deaths};
-         my $ratio   = $stats->[0]->{overall_stats}->{overall}->{k_d_ratio};
-         my $elo     = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{elo}          : 0;
-         my $elot    = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{game_type_cd} : 0;
-         my $elog    = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{games}        : 0;
-         my $capr    = $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} ? $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} : 0;
-         my $favmap  = $stats->[0]->{fav_maps}->{overall}->{map_name};
-         my $favmapt = $stats->[0]->{fav_maps}->{overall}->{game_type_cd};
-         my $last    = $stats->[0]->{overall_stats}->{overall}->{last_played_fuzzy};
-
-         my $embed = {
-            'color' => '15844367',
-            'provider' => {
-               'name' => 'XonStat',
-               'url' => 'https://stats.xonotic.org',
-             },
-#             'thumbnail' => {
-#                'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
-#                'width' => 38,
-#                'height' => 38,
-#             },
-             'image' => {
-                'url' => "https://stats.xonotic.org/static/badges/$qid.png?" . time, # work around discord image caching
-                'width' => 650,
-                'height' => 70,
-             },
-             'footer' => {
-                'text' => "Last played: $last",
-             },
-             'fields' => [
-              {
-                 'name'   => 'Name',
-                 'value'  => "**[$snick]($xonstaturl$qid)**",
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Games Played',
-                 'value'  => $games,
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Favourite Map',
-                 'value'  => sprintf('%s (%s)', $favmap, $favmapt),
-                 'inline' => \1,
-              },
-              {
-                 'name'   => 'Cap Ratio',
-                 'value'  => $capr ? sprintf('%.2f', $capr) : '-',
-                 'inline' => \1,
-              },
-              ],
-         };
-
-         my $message = {
-            'content' => '',
-            'embed' => $embed,
-         };
-
-         $discord->send_message( $channel, $message );
-
-#     main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
-      }
-      elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
-      {
-         my (@x, $y);
-
-         $msg =~ s/`//g;
-         $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
-         $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
-
-         $discord->send_message( $channel, "`@x`" );
-      }
-   }
+   });
 }
 
-#sub discord_on_message_update
-#{
-#   my ($hash) = @_;
-#
-#   my $author = $hash->{'author'};
-#   my $msg = $hash->{'content'};
-#   my $msgid = $hash->{'id'};
-#   my $channel = $hash->{'channel_id'};
-#
-#   return 0 unless $msg;
-#
-#   unless ( exists $author->{'bot'} && $author->{'bot'} )
-#   {
-#      if ( $channel eq $$config{'mainchan'} )
-#      {
-#         clean($channel, $msgid, $msg);
-#      }
-#   }
-#}
 
 sub discord_on_ready
 {
-   my ($hash) = @_;
-   add_me($hash->{'user'});
-   $discord->status_update( { 'game' => $$config{'game'} } ) if ( $$config{'game'} );
-   say localtime(time) . ' Connected to Discord.';
-}
-
-sub discord_on_guild_create
-{
-   my ($hash) = @_;
-   add_guild($hash);
+   $discord->gw->on('READY' => sub
+   {
+      my ($gw, $hash) = @_;
+      add_me($hash->{'user'});
+      $discord->status_update( { 'name' => $$config{'game'}, type => 0 } ) if ( $$config{'game'} );
+   });
 }
 
 sub add_me
@@ -865,23 +831,6 @@ sub add_guild
    {
       $self->{'rolenames'}{$role->{'id'}} = $role->{'name'};
    }
-}
-
-sub clean
-{
-   my ($channel, $msgid, $msg) = @_;
-
-   return 0 unless $msg;
-
-   my $delete = 0;
-
-   $delete++ if ($msg =~ /[^\x{0000}-\x{ffff}]/);
-   $delete++ if ($msg =~ /:\w+:/i);
-   $delete++ if ($msg =~ /https?:\/\/(?:www\.)?tenor/i);
-
-   $discord->delete_message( $channel, $msgid ) if ( $delete );
-
-   return $delete;
 }
 
 sub duration
