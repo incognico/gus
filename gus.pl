@@ -25,7 +25,7 @@ use IO::Async::Loop::Mojo;
 use IO::Async::FileStream;
 use DBI;
 use DBD::SQLite::Constants ':file_open';
-use LWP::Simple '!head';
+use LWP::Simple qw( $ua get );
 use LWP::UserAgent;
 use JSON;
 use Net::SRCDS::Queries;
@@ -37,6 +37,9 @@ use Weather::YR;
 use URI::Escape;
 use MaxMind::DB::Reader;
 use Encode;
+
+$ua->agent( 'Mozilla/5.0' );
+$ua->timeout( 6 );
 
 my $self;
 
@@ -297,6 +300,8 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!player (.+)/i )
          {
+            $discord->start_typing( $channel );
+
             my $param = $1;
             my ($stmt, @bind, $r);
 
@@ -408,6 +413,8 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!stat(us|su)/i )
          {
+            $discord->start_typing( $channel );
+
             my $if       = IO::Interface::Simple->new('lo');
             my $addr     = $if->address;
             my $port     = $$config{'serverport'};
@@ -416,7 +423,7 @@ sub discord_on_message_create
 
             my $q = Net::SRCDS::Queries->new(
                encoding => $encoding,
-               timeout  => 0.3,
+               timeout  => 1.5,
             );
 
             $q->add_server( $addr, $port );
@@ -437,6 +444,8 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!w(?:eather)? (.+)/i )
          {
+            $discord->start_typing( $channel );
+
             my ($loc, $lat, $lon);
             my $alt = 0;
 
@@ -553,6 +562,8 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{'kekchan'} )
          {
+            $discord->start_typing( $channel );
+
             my $type = defined $1 ? lc($1) : 'random';
             $type =~ s/ //g;
 
@@ -567,8 +578,7 @@ sub discord_on_message_create
             }
 
             my $neko = "https://nekobot.xyz/api/image?type=$type";
-            my $ua = LWP::UserAgent->new;
-            $ua->agent( 'Mozilla/5.0' );
+            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
             my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
@@ -588,10 +598,12 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
          {
+            $discord->start_typing( $channel );
+
             my $input = $1;
             my $query = uri_escape( $input );
-            my $ua = LWP::UserAgent->new( ssl_opts => { verify_hostname => 0 } );
-            $ua->agent( 'Mozilla/5.0' );
+            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
+            $ua->agent( ssl_opts => { verify_hostname => 0 } );
             my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
@@ -627,10 +639,11 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
          {
+            $discord->start_typing( $channel );
+
             #my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
             my $ncov = 'https://gitcdn.xyz/repo/BlankerL/DXY-COVID-19-Data/master/json/DXYOverall.json';
-            my $ua = LWP::UserAgent->new;
-            $ua->agent( 'Mozilla/5.0' );
+            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
             my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
@@ -690,6 +703,8 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i )
          {
+            $discord->start_typing( $channel );
+
             my ($qid, $stats);
             ($qid = $1) =~ s/[^0-9]//g;
 
@@ -779,6 +794,8 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
          {
+            $discord->start_typing( $channel );
+
             my (@x, $y);
 
             $msg =~ s/`//g;
