@@ -625,9 +625,10 @@ sub discord_on_message_create
                $discord->send_message( $channel, '`Error fetching data`' );
             }
          }
-         elsif ( $msg =~ /^!(ncov|wuhan|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
+         elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
          {
-            my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
+            #my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
+            my $ncov = 'https://gitcdn.xyz/repo/BlankerL/DXY-COVID-19-Data/master/json/DXYOverall.json';
             my $ua = LWP::UserAgent->new;
             $ua->agent( 'Mozilla/5.0' );
             my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
@@ -647,14 +648,14 @@ sub discord_on_message_create
                      'url' => 'https://lab.isaaclin.cn/nCoV/',
                    },
                    'thumbnail' => {
-                      'url' => 'https://cdn.discordapp.com/attachments/512991515744665600/671457808788619312/unknown.png',
+                      'url' => 'https://cdn.discordapp.com/attachments/673626913864155187/677160782844133386/e1epICE.png',
                    },
                    'footer' => {
-                      'text' => 'Last updated about '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago',
+                      'text' => 'Numbers are cases in China only! (Updated '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago)',
                    },
                    'fields' => [
                     {
-                       'name'   => '**Infected (Confirmed)**',
+                       'name'   => '**Infected (Confirmed & Symptopmatic)**',
                        'value'  => $$i{results}[0]{confirmedCount},
                        'inline' => \0,
                     },
