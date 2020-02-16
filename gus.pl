@@ -833,19 +833,28 @@ sub discord_on_message_create
             {
                $$omdb{Year} =~ s/[^0-9]+//;
 
+               my $footer = '';
+               $footer .= "Rated: $$omdb{Rated}"         unless ( $$omdb{Rated}    eq 'N/A' );
+               $footer .= "; Country: $$omdb{Country}"   unless ( $$omdb{Country}  eq 'N/A' );
+               $footer .= "; Language: $$omdb{Language}" unless ( $$omdb{Language} eq 'N/A' );
+               $footer .= "; Writer: $$omdb{Writer}"     unless ( $$omdb{Writer}   eq 'N/A' );
+               $footer .= "; Director: $$omdb{Director}" unless ( $$omdb{Director} eq 'N/A' );
+               $footer .= "; Awards: $$omdb{Awards}"     unless ( $$omdb{Awards}   eq 'N/A' );
+               substr($footer, 0, 2) = ''                if     ( $$omdb{Rated}    eq 'N/A' );
+
                my $embed = {
                   'color' => '15844367',
                   'provider' => {
                      'name' => 'OMDB',
                      'url'  => 'https://www.omdbapi.com',
                    },
-                   'title' => "$$omdb{Title}",
+                   'title' => $$omdb{Title} . ($$omdb{Type} eq 'series' ? ' (TV Series)' : ''),
                    'url'   => "https://imdb.com/title/$$omdb{imdbID}/",
                    'image' => {
                       'url' => $$omdb{Poster},
                    },
                    'footer' => {
-                      'text' => "Rated: $$omdb{Rated}; Country: $$omdb{Country}; Language: $$omdb{Language}; Writer: $$omdb{Writer}; Director: $$omdb{Director}; Awards: $$omdb{Awards}",
+                      'text' => $footer,
                    },
                    'fields' => [
                     {
@@ -882,6 +891,7 @@ sub discord_on_message_create
                };
 
                push @{$$embed{'fields'}}, { 'name' => 'Metascore', 'value' => "$$omdb{Metascore}/100", 'inline' => \1, } unless ( $$omdb{Metascore} eq 'N/A' );
+               push @{$$embed{'fields'}}, { 'name' => 'Seasons', 'value' => $$omdb{totalSeasons}, 'inline' => \1, } if ( $$omdb{Type} eq 'series' );
 
                my $message = {
                   'content' => '',
