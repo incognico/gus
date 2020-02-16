@@ -831,62 +831,62 @@ sub discord_on_message_create
 
             if ($$omdb{Response} eq 'True')
             {
-					my $embed = {
-						'color' => '15844367',
-						'provider' => {
-							'name' => 'OMDB',
-							'url'  => 'https://www.omdbapi.com',
-						 },
+               my $embed = {
+                  'color' => '15844367',
+                  'provider' => {
+                     'name' => 'OMDB',
+                     'url'  => 'https://www.omdbapi.com',
+                   },
                    'title' => "$$omdb{Title}",
                    'url'   => "https://imdb.com/title/$$omdb{imdbID}/",
-						 'image' => {
-							 'url' => $$omdb{Poster},
-						 },
-						 'footer' => {
-							 'text' => "Rated: $$omdb{Rated}; Country: $$omdb{Country}; Language: $$omdb{Language}; Writer: $$omdb{Writer}; Director: $$omdb{Director}; Awards: $$omdb{Awards}",
-						 },
-						 'fields' => [
-						  {
-							  'name'   => 'Year',
-							  'value'  => $$omdb{Year},
-							  'inline' => \1,
-						  },
-						  {
-							  'name'   => 'Runtime',
-							  'value'  => $$omdb{Runtime},
-							  'inline' => \1,
-						  },
-						  {
-							  'name'   => 'Genre',
-							  'value'  => $$omdb{Genre},
-							  'inline' => \1,
-						  },
-						  {
-							  'name'   => 'Actors',
-							  'value'  => $$omdb{Actors},
-							  'inline' => \1,
-						  },
-						  {
-							  'name'   => 'Plot',
-							  'value'  => $$omdb{Plot},
-							  'inline' => \0,
-						  },
-						  {
-							  'name'   => 'IMDB Rating',
-							  'value'  => "$$omdb{imdbRating}/10 ($$omdb{imdbVotes} votes)",
-							  'inline' => \1,
-						  },
-						  ],
-					};
+                   'image' => {
+                      'url' => $$omdb{Poster},
+                   },
+                   'footer' => {
+                      'text' => "Rated: $$omdb{Rated}; Country: $$omdb{Country}; Language: $$omdb{Language}; Writer: $$omdb{Writer}; Director: $$omdb{Director}; Awards: $$omdb{Awards}",
+                   },
+                   'fields' => [
+                    {
+                       'name'   => 'Year',
+                       'value'  => $$omdb{Year},
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Runtime',
+                       'value'  => $$omdb{Runtime},
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Genre',
+                       'value'  => $$omdb{Genre},
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Actors',
+                       'value'  => $$omdb{Actors},
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Plot',
+                       'value'  => $$omdb{Plot},
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => 'IMDB Rating',
+                       'value'  => "$$omdb{imdbRating}/10 ($$omdb{imdbVotes} votes)",
+                       'inline' => \1,
+                    },
+                    ],
+               };
 
                push @{$$embed{'fields'}}, { 'name' => 'Metascore', 'value' => "$$omdb{Metascore}/100", 'inline' => \1, } unless ( $$omdb{Metascore} eq 'N/A' );
 
-					my $message = {
-						'content' => '',
-						'embed' => $embed,
-					};
+               my $message = {
+                  'content' => '',
+                  'embed' => $embed,
+               };
 
-					$discord->send_message( $channel, $message );
+               $discord->send_message( $channel, $message );
             }
             else
             {
