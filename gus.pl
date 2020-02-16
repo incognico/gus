@@ -116,9 +116,7 @@ my $maps = {
    'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape' => '<:KannaSpook:603856338132664321> They Hunger: Escape',
-   'the_daikon_warfare1' => ':seedling: The Daikon Warfare: 1',
-   'the_daikon_warfare2' => ':seedling: The Daikon Warfare: 2',
-   'the_daikon_warfare3' => ':seedling: The Daikon Warfare: 3',
+   'the_daikon_warfare1' => ':seedling: The Daikon Warfare',
    'tunnelvision_1' => '<:piginablanket:542462830163656764> Tunnel Vision',
    'uboa' => ':rice_ball: UBOA',
 };
@@ -663,28 +661,44 @@ sub discord_on_message_create
                    'thumbnail' => {
                       'url' => 'https://cdn.discordapp.com/attachments/673626913864155187/677160782844133386/e1epICE.png',
                    },
+                   'image' => {
+                      #'url' => "https://gitcdn.xyz/repo/alext234/coronavirus-stats/master/images/bnonews-international.png?" . time, # work around discord image caching
+                      'url' => "https://raw.githubusercontent.com/alext234/coronavirus-stats/master/images/bnonews-international.png?" . time, # work around discord image caching
+                      'width' => 302,
+                      'height' => 162,
+                   },
                    'footer' => {
-                      'text' => 'Numbers are cases in China only! (Updated '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago)',
+                      'text' => 'Numbers: China only (Updated '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago); Graph: Rest of the world',
                    },
                    'fields' => [
                     {
-                       'name'   => '**Infected (Confirmed & Symptopmatic)**',
-                       'value'  => $$i{results}[0]{confirmedCount},
+                       'name'   => '**Infected (Overall Confirmed)**',
+                       'value'  => "$$i{results}[0]{confirmedCount} (+$$i{results}[0]{confirmedIncr})",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => '**Infected (Currently)**',
+                       'value'  => "$$i{results}[0]{currentConfirmedCount} (+$$i{results}[0]{currentConfirmedIncr})",
                        'inline' => \0,
                     },
                     {
                        'name'   => '**Suspected**',
-                       'value'  => $$i{results}[0]{suspectedCount},
+                       'value'  => "$$i{results}[0]{suspectedCount} (+$$i{results}[0]{suspectedIncr})",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => '**Serious Condition**',
+                       'value'  => "$$i{results}[0]{seriousCount} (+$$i{results}[0]{seriousIncr})",
                        'inline' => \1,
                     },
                     {
                        'name'   => '**Dead**',
-                       'value'  => $$i{results}[0]{deadCount},
+                       'value'  => "$$i{results}[0]{deadCount} (+$$i{results}[0]{deadIncr})",
                        'inline' => \1,
                     },
                     {
                        'name'   => '**Recovered**',
-                       'value'  => $$i{results}[0]{curedCount},
+                       'value'  => "$$i{results}[0]{curedCount} (+$$i{results}[0]{curedIncr})",
                        'inline' => \1,
                     },
                     ],
