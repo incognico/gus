@@ -814,7 +814,7 @@ sub discord_on_message_create
             my $title = uri_escape("@args");
 
             my $type = 't';
-            $type = 'i' if ($title =~ /((?:tt)?\d{8})/);
+            $type = 'i' if ($title =~ /((?:tt)?\d{7,8})/);
 
             my $url = 'http://www.omdbapi.com/?apikey=' . $$config{'omdbapikey'};
             $url .= '&' . $type . '=' . $title;
@@ -831,6 +831,8 @@ sub discord_on_message_create
 
             if ($$omdb{Response} eq 'True')
             {
+               $$omdb{Year} =~ s/[^0-9]+//;
+
                my $embed = {
                   'color' => '15844367',
                   'provider' => {
