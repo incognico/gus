@@ -825,7 +825,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
                return;
             }
-            my $omdb = from_json ( $r->decoded_content );
+            my $omdb = from_json ( Encode::decode_utf8( $r->decoded_content ) );
 
             if ($$omdb{Response} eq 'True')
             {
@@ -849,6 +849,7 @@ sub discord_on_message_create
                    'title' => $$omdb{Title} . ($$omdb{Type} eq 'series' ? ' (TV Series)' : ''),
                    'url'   => "https://imdb.com/title/$$omdb{imdbID}/",
                    'image' => {
+                   #'thumbnail' => {
                       'url' => $$omdb{Poster},
                    },
                    'footer' => {
@@ -862,7 +863,7 @@ sub discord_on_message_create
                     },
                     {
                        'name'   => 'Runtime',
-                       'value'  => $$omdb{Runtime},
+                       'value'  => $$omdb{Runtime} . ($$omdb{Type} eq 'series' ? ' (per EP)' : ''),
                        'inline' => \1,
                     },
                     {
