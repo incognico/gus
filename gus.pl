@@ -807,6 +807,8 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i )
          {
+            $discord->start_typing( $channel );
+
             my @args = split(/ /, $1);
             my $year = pop(@args) if ($args[$#args] =~ /^\d{4}$/);
             my $title = uri_escape("@args");
