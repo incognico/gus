@@ -665,8 +665,6 @@ sub discord_on_message_create
                    'image' => {
                       #'url' => "https://gitcdn.xyz/repo/alext234/coronavirus-stats/master/images/bnonews-international.png?" . time, # work around discord image caching
                       'url' => "https://raw.githubusercontent.com/alext234/coronavirus-stats/master/images/bnonews-international.png?" . time, # work around discord image caching
-                      'width' => 302,
-                      'height' => 162,
                    },
                    'footer' => {
                       'text' => 'Numbers: China only (Updated '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago); Graph: Rest of the world',
