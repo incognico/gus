@@ -59,6 +59,7 @@ my $config = {
    serverport   => '27015',
    gmapikey     => '',
    geo          => "$ENV{HOME}/gus/GeoLite2-City.mmdb",
+   omdbapikey   => '',
 
    discord => {
       client_id => '',
@@ -805,6 +806,92 @@ sub discord_on_message_create
             $discord->send_message( $channel, $message );
 
    #     main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
+         }
+         elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i )
+         {
+            my @args = split(/ /, $1);
+            my $year = pop(@args) if ($args[$#args] =~ /^\d{4}$/);
+            my $title = uri_escape("@args");
+
+            my $type = 't';
+            $type = 'i' if ($title =~ /((?:tt)?\d{8})/);
+
+            my $url = 'http://www.omdbapi.com/?apikey=' . $$config{'omdbapikey'};
+            $url .= '&' . $type . '=' . $title;
+            $url .= '&y=' . $year if ($year);
+
+            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
+            my $r = $ua->get( $url, 'Content-Type' => 'application/json' );
+            unless ( $r->is_success )
+            {
+               $discord->send_message( $channel,  '`Error fetching data`' );
+               return;
+            }
+            my $omdb = from_json ( $r->decoded_content );
+
+            if ($$omdb{Response} eq 'True')
+            {
+					my $embed = {
+						'color' => '15844367',
+						'provider' => {
+							'name' => 'OMDB',
+							'url'  => 'https://www.omdbapi.com',
+						 },
+                   'title' => "$$omdb{Title}",
+                   'url'   => "https://imdb.com/title/$$omdb{imdbID}/",
+						 'image' => {
+							 'url' => $$omdb{Poster},
+						 },
+						 'footer' => {
+							 'text' => "Rated: $$omdb{Rated}; Country: $$omdb{Country}; Language: $$omdb{Language}; Writer: $$omdb{Writer}; Director: $$omdb{Director}; Awards: $$omdb{Awards}",
+						 },
+						 'fields' => [
+						  {
+							  'name'   => 'Year',
+							  'value'  => $$omdb{Year},
+							  'inline' => \1,
+						  },
+						  {
+							  'name'   => 'Runtime',
+							  'value'  => $$omdb{Runtime},
+							  'inline' => \1,
+						  },
+						  {
+							  'name'   => 'Genre',
+							  'value'  => $$omdb{Genre},
+							  'inline' => \1,
+						  },
+						  {
+							  'name'   => 'Actors',
+							  'value'  => $$omdb{Actors},
+							  'inline' => \1,
+						  },
+						  {
+							  'name'   => 'Plot',
+							  'value'  => $$omdb{Plot},
+							  'inline' => \0,
+						  },
+						  {
+							  'name'   => 'IMDB Rating',
+							  'value'  => "$$omdb{imdbRating}/10 ($$omdb{imdbVotes} votes)",
+							  'inline' => \1,
+						  },
+						  ],
+					};
+
+               push @{$$embed{'fields'}}, { 'name' => 'Metascore', 'value' => "$$omdb{Metascore}/100", 'inline' => \1, } unless ( $$omdb{Metascore} eq 'N/A' );
+
+					my $message = {
+						'content' => '',
+						'embed' => $embed,
+					};
+
+					$discord->send_message( $channel, $message );
+            }
+            else
+            {
+               $discord->send_message( $channel,  '`No match`' );
+            }
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
          {
