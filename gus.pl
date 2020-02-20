@@ -659,6 +659,8 @@ sub discord_on_message_create
                      'name' => 'dxy.cn',
                      'url' => 'https://lab.isaaclin.cn/nCoV/',
                    },
+                   'title' => '2019-nCoV / SARS-CoV-2 / COVID-19',
+                   'url' => 'https://bnonews.com/index.php/2020/02/the-latest-coronavirus-cases/',
                    'thumbnail' => {
                       'url' => 'https://cdn.discordapp.com/attachments/673626913864155187/677160782844133386/e1epICE.png',
                    },
@@ -672,32 +674,32 @@ sub discord_on_message_create
                    'fields' => [
                     {
                        'name'   => '**Infected (Overall Confirmed)**',
-                       'value'  => "$$i{results}[0]{confirmedCount} (+$$i{results}[0]{confirmedIncr})",
+                       'value'  => "$$i{results}[0]{confirmedCount} (" . (abs($$i{results}[0]{confirmedIncr}) != $$i{results}[0]{confirmedIncr} ? '' : '+') . "$$i{results}[0]{confirmedIncr})",
                        'inline' => \0,
                     },
                     {
                        'name'   => '**Infected (Currently)**',
-                       'value'  => "$$i{results}[0]{currentConfirmedCount} (+$$i{results}[0]{currentConfirmedIncr})",
+                       'value'  => "$$i{results}[0]{currentConfirmedCount} (" . (abs($$i{results}[0]{currentConfirmedIncr}) != $$i{results}[0]{currentConfirmedIncr} ? '' : '+') . "$$i{results}[0]{currentConfirmedIncr})",
                        'inline' => \0,
                     },
                     {
                        'name'   => '**Suspected**',
-                       'value'  => "$$i{results}[0]{suspectedCount} (+$$i{results}[0]{suspectedIncr})",
+                       'value'  => "$$i{results}[0]{suspectedCount} (" . (abs($$i{results}[0]{suspectedIncr}) != $$i{results}[0]{suspectedIncr} ? '' : '+') . "$$i{results}[0]{suspectedIncr})",
                        'inline' => \1,
                     },
                     {
                        'name'   => '**Serious Condition**',
-                       'value'  => "$$i{results}[0]{seriousCount} (+$$i{results}[0]{seriousIncr})",
+                       'value'  => "$$i{results}[0]{seriousCount} (" . (abs($$i{results}[0]{seriousIncr}) != $$i{results}[0]{seriousIncr} ? '' : '+') . "$$i{results}[0]{seriousIncr})",
                        'inline' => \1,
                     },
                     {
                        'name'   => '**Dead**',
-                       'value'  => "$$i{results}[0]{deadCount} (+$$i{results}[0]{deadIncr})",
+                       'value'  => "$$i{results}[0]{deadCount} (" . (abs($$i{results}[0]{deadIncr}) != $$i{results}[0]{deadIncr} ? '' : '+') . "$$i{results}[0]{deadIncr})",
                        'inline' => \1,
                     },
                     {
                        'name'   => '**Recovered**',
-                       'value'  => "$$i{results}[0]{curedCount} (+$$i{results}[0]{curedIncr})",
+                       'value'  => "$$i{results}[0]{curedCount} (" . (abs($$i{results}[0]{curedIncr}) != $$i{results}[0]{curedIncr} ? '' : '+') . "$$i{results}[0]{curedIncr})",
                        'inline' => \1,
                     },
                     ],
