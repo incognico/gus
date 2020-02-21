@@ -833,8 +833,6 @@ sub discord_on_message_create
 
             if ($$omdb{Response} eq 'True')
             {
-               $$omdb{Year} =~ s/[^0-9]+//;
-
                my $footer = '';
                $footer .= "Rated: $$omdb{Rated}"         unless ( $$omdb{Rated}    eq 'N/A' );
                $footer .= "; Country: $$omdb{Country}"   unless ( $$omdb{Country}  eq 'N/A' );
