@@ -850,10 +850,6 @@ sub discord_on_message_create
                    },
                    'title' => $$omdb{Title} . ($$omdb{Type} eq 'series' ? ' (TV Series)' : ''),
                    'url'   => "https://imdb.com/title/$$omdb{imdbID}/",
-                   'image' => {
-                   #'thumbnail' => {
-                      'url' => $$omdb{Poster},
-                   },
                    'footer' => {
                       'text' => $footer,
                    },
@@ -873,26 +869,16 @@ sub discord_on_message_create
                        'value'  => $$omdb{Genre},
                        'inline' => \1,
                     },
-                    {
-                       'name'   => 'Actors',
-                       'value'  => $$omdb{Actors},
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => 'Plot',
-                       'value'  => $$omdb{Plot},
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => 'IMDB Rating',
-                       'value'  => "$$omdb{imdbRating}/10 ($$omdb{imdbVotes} votes)",
-                       'inline' => \1,
-                    },
                     ],
                };
 
-               push @{$$embed{'fields'}}, { 'name' => 'Metascore', 'value' => "$$omdb{Metascore}/100", 'inline' => \1, } unless ( $$omdb{Metascore} eq 'N/A' );
-               push @{$$embed{'fields'}}, { 'name' => 'Seasons', 'value' => $$omdb{totalSeasons}, 'inline' => \1, } if ( $$omdb{Type} eq 'series' );
+               $$embed{image} = { 'url' => $$omdb{Poster}, } unless ( $$omdb{Poster} eq 'N/A' );
+
+               push @{$$embed{'fields'}}, { 'name' => 'Actors',      'value' => $$omdb{Actors},                                    'inline' => \1, } unless ( $$omdb{Actors}     eq 'N/A' );
+               push @{$$embed{'fields'}}, { 'name' => 'Plot',        'value' => $$omdb{Plot},                                      'inline' => \0, };
+               push @{$$embed{'fields'}}, { 'name' => 'IMDB Rating', 'value' => "$$omdb{imdbRating}/10 ($$omdb{imdbVotes} votes)", 'inline' => \1, } unless ( $$omdb{imdbRating} eq 'N/A' );
+               push @{$$embed{'fields'}}, { 'name' => 'Metascore',   'value' => "$$omdb{Metascore}/100",                           'inline' => \1, } unless ( $$omdb{Metascore}  eq 'N/A' );
+               push @{$$embed{'fields'}}, { 'name' => 'Seasons',     'value' => $$omdb{totalSeasons},                              'inline' => \1, }     if ( $$omdb{Type}       eq 'series' );
 
                my $message = {
                   'content' => '',
