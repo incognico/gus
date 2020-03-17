@@ -299,8 +299,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!player (.+)/i )
          {
-            $discord->start_typing( $channel );
-
             my $param = $1;
             my ($stmt, @bind, $r);
 
@@ -412,8 +410,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!stat(us|su)/i )
          {
-            $discord->start_typing( $channel );
-
             my $if       = IO::Interface::Simple->new('lo');
             my $addr     = $if->address;
             my $port     = $$config{'serverport'};
@@ -443,8 +439,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!w(?:eather)? (.+)/i )
          {
-            $discord->start_typing( $channel );
-
             my ($loc, $lat, $lon);
             my $alt = 0;
 
@@ -561,8 +555,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{'kekchan'} )
          {
-            $discord->start_typing( $channel );
-
             my $type = defined $1 ? lc($1) : 'random';
             $type =~ s/ //g;
 
@@ -597,8 +589,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
          {
-            $discord->start_typing( $channel );
-
             my $input = $1;
             my $query = uri_escape( $input );
             my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
@@ -638,10 +628,7 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
          {
-            $discord->start_typing( $channel );
-
-            #my $ncov = 'https://lab.isaaclin.cn/nCoV/api/overall?latest=1';
-            my $ncov = 'https://gitcdn.xyz/repo/BlankerL/DXY-COVID-19-Data/master/json/DXYOverall.json';
+            my $ncov = 'https://montanaflynn.github.io/covid-19/data/current.json';
             my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
             my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
@@ -651,56 +638,132 @@ sub discord_on_message_create
             }
             my $i = from_json ( $r->decoded_content );
 
-            if ( defined $$i{success} && $$i{success} )
+            if ( defined $$i{global} )
             {
+               my ($confirmed, $deaths, $recovered, $updated) = (0, 0, 0, 0);
+
+               for ( keys %{$$i{global}} )
+               {
+                  $confirmed += $$i{global}{$_}{confirmed};
+                  $deaths    += $$i{global}{$_}{deaths};
+                  $recovered += $$i{global}{$_}{recovered};
+                  $updated    = $$i{global}{$_}{updated} if ( $$i{global}{$_}{updated} > $updated );
+               }
+
                my $embed = {
                   'color' => '15158332',
                   'provider' => {
-                     'name' => 'dxy.cn',
-                     'url' => 'https://lab.isaaclin.cn/nCoV/',
+                     'name' => 'Berliner Morgenpost',
+                     'url' => 'https://interaktiv.morgenpost.de/corona-virus-karte-infektionen-deutschland-weltweit/',
                    },
                    'title' => '2019-nCoV / SARS-CoV-2 / COVID-19',
                    'url' => 'https://bnonews.com/index.php/2020/02/the-latest-coronavirus-cases/',
                    'thumbnail' => {
                       'url' => 'https://cdn.discordapp.com/attachments/673626913864155187/677160782844133386/e1epICE.png',
                    },
-                   'image' => {
-                      #'url' => "https://gitcdn.xyz/repo/alext234/coronavirus-stats/master/images/bnonews-international.png?" . time, # work around discord image caching
-                      'url' => "https://raw.githubusercontent.com/alext234/coronavirus-stats/master/images/bnonews-international.png?" . time, # work around discord image caching
-                   },
                    'footer' => {
-                      'text' => 'Numbers: China only (Updated '. duration(time-int($$i{results}[0]{updateTime}/1000)) . ' ago); Graph: Rest of the world',
+                      'text' => 'Last updated ' . duration( time-substr($updated, 0, -3) ) . ' ago.',
                    },
                    'fields' => [
                     {
-                       'name'   => '**Infected (Overall Confirmed)**',
-                       'value'  => "$$i{results}[0]{confirmedCount} (" . (abs($$i{results}[0]{confirmedIncr}) != $$i{results}[0]{confirmedIncr} ? '' : '+') . "$$i{results}[0]{confirmedIncr})",
+                       'name'   => ':earth_africa: **Worldwide**',
+                       'value'  => "**Confirmed:** $confirmed **Deaths:** $deaths **Recovered:** $recovered",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => ':flag_cn: **China**',
+                       'value'  => "**C:** $$i{global}{China}{confirmed} **D:** $$i{global}{China}{deaths} **R:** $$i{global}{China}{recovered}",
                        'inline' => \0,
                     },
                     {
-                       'name'   => '**Infected (Currently)**',
-                       'value'  => "$$i{results}[0]{currentConfirmedCount} (" . (abs($$i{results}[0]{currentConfirmedIncr}) != $$i{results}[0]{currentConfirmedIncr} ? '' : '+') . "$$i{results}[0]{currentConfirmedIncr})",
+                       'name'   => ':flag_it: **Italy**',
+                       'value'  => "**C:** $$i{global}{Italy}{confirmed} **D:** $$i{global}{Italy}{deaths} **R:** $$i{global}{Italy}{recovered}",
                        'inline' => \0,
                     },
                     {
-                       'name'   => '**Suspected**',
-                       'value'  => "$$i{results}[0]{suspectedCount} (" . (abs($$i{results}[0]{suspectedIncr}) != $$i{results}[0]{suspectedIncr} ? '' : '+') . "$$i{results}[0]{suspectedIncr})",
+                       'name'   => ':flag_ir: **Iran**',
+                       'value'  => "**C:** $$i{global}{Iran}{confirmed} **D:** $$i{global}{Iran}{deaths} **R:** $$i{global}{Iran}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_es: **Spain**',
+                       'value'  => "**C:** $$i{global}{Spain}{confirmed} **D:** $$i{global}{Spain}{deaths} **R:** $$i{global}{Spain}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_de: **Germany**',
+                       'value'  => "**C:** $$i{global}{Germany}{confirmed} **D:** $$i{global}{Germany}{deaths} **R:** $$i{global}{Germany}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_kr: **South Korea**',
+                       'value'  => "**C:** $$i{global}{'South Korea'}{confirmed} **D:** $$i{global}{'South Korea'}{deaths} **R:** $$i{global}{'South Korea'}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_fr: **France**',
+                       'value'  => "**C:** $$i{global}{France}{confirmed} **D:** $$i{global}{France}{deaths} **R:** $$i{global}{France}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_us: **United States of America**',
+                       'value'  => "**C:** $$i{global}{'United States'}{confirmed} **D:** $$i{global}{'United States'}{deaths} **R:** $$i{global}{'United States'}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_ch: **Switzerland**',
+                       'value'  => "**C:** $$i{global}{Switzerland}{confirmed} **D:** $$i{global}{Switzerland}{deaths} **R:** $$i{global}{Switzerland}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_gb: **United Kingdom**',
+                       'value'  => "**C:** $$i{global}{'United Kingdom'}{confirmed} **D:** $$i{global}{'United Kingdom'}{deaths} **R:** $$i{global}{'United Kingdom'}{recovered}",
                        'inline' => \1,
                     },
                     {
-                       'name'   => '**Serious Condition**',
-                       'value'  => "$$i{results}[0]{seriousCount} (" . (abs($$i{results}[0]{seriousIncr}) != $$i{results}[0]{seriousIncr} ? '' : '+') . "$$i{results}[0]{seriousIncr})",
+                       'name'   => ':flag_nl: **Netherlands**',
+                       'value'  => "**C:** $$i{global}{Netherlands}{confirmed} **D:** $$i{global}{Netherlands}{deaths} **R:** $$i{global}{Netherlands}{recovered}",
                        'inline' => \1,
                     },
                     {
-                       'name'   => '**Dead**',
-                       'value'  => "$$i{results}[0]{deadCount} (" . (abs($$i{results}[0]{deadIncr}) != $$i{results}[0]{deadIncr} ? '' : '+') . "$$i{results}[0]{deadIncr})",
+                       'name'   => ':flag_no: **Norway**',
+                       'value'  => "**C:** $$i{global}{Norway}{confirmed} **D:** $$i{global}{Norway}{deaths} **R:** $$i{global}{Norway}{recovered}",
                        'inline' => \1,
                     },
                     {
-                       'name'   => '**Recovered**',
-                       'value'  => "$$i{results}[0]{curedCount} (" . (abs($$i{results}[0]{curedIncr}) != $$i{results}[0]{curedIncr} ? '' : '+') . "$$i{results}[0]{curedIncr})",
+                       'name'   => ':flag_at: **Austria**',
+                       'value'  => "**C:** $$i{global}{Austria}{confirmed} **D:** $$i{global}{Austria}{deaths} **R:** $$i{global}{Austria}{recovered}",
                        'inline' => \1,
+                    },
+                    {
+                       'name'   => ':flag_be: **Belgium**',
+                       'value'  => "**C:** $$i{global}{Belgium}{confirmed} **D:** $$i{global}{Belgium}{deaths} **R:** $$i{global}{Belgium}{recovered}",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => ':flag_se: **Sweden**',
+                       'value'  => "**C:** $$i{global}{Sweden}{confirmed} **D:** $$i{global}{Sweden}{deaths} **R:** $$i{global}{Sweden}{recovered}",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => ':flag_dk: **Denmark**',
+                       'value'  => "**C:** $$i{global}{Denmark}{confirmed} **D:** $$i{global}{Denmark}{deaths} **R:** $$i{global}{Denmark}{recovered}",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => ':flag_jp: **Japan**',
+                       'value'  => "**C:** $$i{global}{Japan}{confirmed} **D:** $$i{global}{Japan}{deaths} **R:** $$i{global}{Japan}{recovered}",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => ':flag_il: **Israel**',
+                       'value'  => "**C:** $$i{global}{Israel}{confirmed} **D:** $$i{global}{Israel}{deaths} **R:** $$i{global}{Israel}{recovered}",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => ':ocean: **Plague Ships**',
+                       'value'  => "**C:** $$i{global}{'Kreuzfahrtschiffe und Sonstige'}{confirmed} **D:** $$i{global}{'Kreuzfahrtschiffe und Sonstige'}{deaths} **R:** $$i{global}{'Kreuzfahrtschiffe und Sonstige'}{recovered}",
+                       'inline' => \0,
                     },
                     ],
                };
@@ -718,8 +781,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i )
          {
-            $discord->start_typing( $channel );
-
             my ($qid, $stats);
             ($qid = $1) =~ s/[^0-9]//g;
 
@@ -809,8 +870,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i )
          {
-            $discord->start_typing( $channel );
-
             my @args = split(/ /, $1);
             my $year = pop(@args) if ($args[$#args] =~ /^\d{4}$/);
             my $title = uri_escape("@args");
@@ -894,8 +953,6 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
          {
-            $discord->start_typing( $channel );
-
             my (@x, $y);
 
             $msg =~ s/`//g;
