@@ -80,46 +80,47 @@ my $discord = Mojo::Discord->new(
 );
 
 my $maps = {
-   'ba_security1' => '<:flower:458608402549964814> HL: Blue Shift',
+   'asmap00'              => ':sheep: Azure Sheep',
+   'ba_tram1'             => '<:flower:458608402549964814> HL: Blue Shift',
    'bm_nightmare_a_final' => '<:scary:516921261688094720> Black Mesa Nightmare',
-   'bm_sts' => '<:sven:459617478365020203> Black Mesa Special Tactics Sector',
-   'botparty' => '<:omegalul:458685801706815489> Bot Party',
-   'botrace' => '<:happy:555506080793493538> Bot Race',
-   'echoes00' => '<:wow:516921262199799818> HL: Echoes',
-   'escape_series_1a' => ':runner: Escape Series: Part 1',
-   'escape_series_2a' => ':runner: Escape Series: Part 2',
-   'escape_series_3a' => ':runner: Escape Series: Part 3',
-   'g-ara1' => '<:nani:603508663562272788> G-ARA',
-   'hidoi_map1' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
-   'hidoi_map2' => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
-   'hl_c00' => '<:flower:458608402549964814> Half-Life',
-   'island' => ':island: Comfy, island',
-   'of1a1' => '<:flower:458608402549964814> HL: Opposing Force',
-   'of_utbm' => ':new_moon: OP4: Under the Black Moon',
-   'otokotati_no_kouzan' => ':hammer_pick: Otokotati No Kouzan',
-   'pizza_ya_san1' => ':pizza: Pizza Ya San: 1',
-   'pizza_ya_san2' => ':pizza: Pizza Ya San: 2',
-   'po_c1m1' => ':regional_indicator_p: Poke 646',
-   'projectg1' => ':dromedary_camel: Project: Guilty',
-   'pv_c1m1' => ':regional_indicator_v: Poke 646: Vendetta',
-   'quad_f' => ':black_large_square: Quad',
-   'ra_quad' => ':black_square_button: Real Adrenaline Quad',
-   'ressya_no_tabi' => ':train2::camera_with_flash: Ressya No Tabi',
-   'restriction01' => ':radioactive: Restriction',
-   'road_to_shinnen' => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
-   'rust_islands_b9' => '<:eecat:460442390457483274> R U S T',
-   'rust_legacy_b9' => '<:eecat:460442390457483274> (old) R U S T',
-   'rust_mini_b9' => '<:eecat:460442390457483274> (mini) R U S T',
-   'sa13' => '<:Kannasuicide:603609334080995338> SA13',
-   'sc_royals1' => ':eye: Royals',
+   'bm_sts'               => '<:sven:459617478365020203> Black Mesa Special Tactics Sector',
+   'botparty'             => '<:omegalul:458685801706815489> Bot Party',
+   'botrace'              => '<:happy:555506080793493538> Bot Race',
+   'echoes00'             => '<:wow:516921262199799818> HL: Echoes',
+   'escape_series_1a'     => ':runner: Escape Series: Part 1',
+   'escape_series_2a'     => ':runner: Escape Series: Part 2',
+   'escape_series_3a'     => ':runner: Escape Series: Part 3',
+   'g-ara1'               => '<:nani:603508663562272788> G-ARA',
+   'hidoi_map1'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
+   'hidoi_map2'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
+   'hl_c00'               => '<:flower:458608402549964814> Half-Life',
+   'island'               => ':island: Comfy, island',
+   'of0a0'                => '<:flower:458608402549964814> HL: Opposing Force',
+   'of_utbm'              => ':new_moon: OP4: Under the Black Moon',
+   'otokotati_no_kouzan'  => ':hammer_pick: Otokotati No Kouzan',
+   'pizza_ya_san1'        => ':pizza: Pizza Ya San: 1',
+   'pizza_ya_san2'        => ':pizza: Pizza Ya San: 2',
+   'po_c1m1'              => ':regional_indicator_p: Poke 646',
+   'projectg1'            => ':dromedary_camel: Project: Guilty',
+   'pv_c1m1'              => ':regional_indicator_v: Poke 646: Vendetta',
+   'quad_f'               => '<:piginablanket:542462830163656764> Quad',
+   'ra_quad'              => '<:piginablanket:542462830163656764> Real Adrenaline Quad',
+   'ressya_no_tabi'       => ':train2::camera_with_flash: Ressya No Tabi',
+   'restriction01'        => ':radioactive: Restriction',
+   'road_to_shinnen'      => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
+   'rust_islands_b9'      => '<:eecat:460442390457483274> R U S T',
+   'rust_legacy_b9'       => '<:eecat:460442390457483274> (legacy) R U S T',
+   'rust_mini_b9'         => '<:eecat:460442390457483274> (mini) R U S T',
+   'sa13'                 => '<:Kannasuicide:603609334080995338> SA13',
+   'sc_royals1'           => ':eye: Royals',
    'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
-   'th_ep1_01' => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
-   'th_ep2_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
-   'th_ep3_00' => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
-   'th_escape' => '<:KannaSpook:603856338132664321> They Hunger: Escape',
-   'the_daikon_warfare1' => ':seedling: The Daikon Warfare',
-   'tunnelvision_1' => '<:piginablanket:542462830163656764> Tunnel Vision',
-   'uboa' => ':rice_ball: UBOA',
+   'th_ep1_01'            => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
+   'th_ep2_00'            => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
+   'th_ep3_00'            => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
+   'th_escape'            => '<:KannaSpook:603856338132664321> They Hunger: Escape',
+   'the_daikon_warfare1'  => ':seedling: The Daikon Warfare',
+   'tunnelvision_1'       => '<:zooming:640195746444083200> Tunnel Vision',
+   'uboa'                 => ':rice_ball: UBOA',
 };
 
 my @winddesc = (
@@ -137,11 +138,6 @@ my @winddesc = (
    'Violent storm',
    'Hurricane'
 );
-
-#my $reacts = {
-#   264851156973387788 => 'biba:458415471130050565', # biba
-#   150294740703772672 => '🏳️‍🌈', # prid
-#};
 
 my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 
@@ -436,9 +432,9 @@ sub discord_on_message_create
             {
                my $diff = '';
                $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
-               my $msg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**$diff";
+               my $dmsg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**$diff";
 
-               $discord->send_message( $channel, $msg );
+               $discord->send_message( $channel, $dmsg );
             }
          }
          elsif ( $msg =~ /^!w(?:eather)? (.+)/i && $channel ne $$config{'wufluchan'} )
@@ -609,16 +605,16 @@ sub discord_on_message_create
             {
                if ( defined $$ud{list}[0]{definition} )
                {
-                   my $msg = '';
+                   my $res = '';
 
                    for (0..3)
                    {
                       $$ud{list}[$_]{definition} =~ s/\s+/ /g;
-                      $msg .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 665) ? substr($$ud{list}[$_]{definition}, 0, 666) . '...' : $$ud{list}[$_]{definition});
+                      $res .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 665) ? substr($$ud{list}[$_]{definition}, 0, 666) . '...' : $$ud{list}[$_]{definition});
                       last unless (defined $$ud{list}[$_+1]{definition});
                    }
 
-                   $discord->send_message( $channel, "```$msg```" );
+                   $discord->send_message( $channel, "```$res```" );
                }
                else
                {
@@ -632,7 +628,7 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
          {
-            my $ncov = 'https://montanaflynn.github.io/covid-19/data/current.json';
+            my $ncov = 'https://raw.githubusercontent.com/montanaflynn/covid-19/master/data/current.json';
             my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
             my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
@@ -680,13 +676,13 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_it: **Italy**',
-                       'value'  => "**I:** $$i{global}{Italy}{confirmed} (**C:** " . ($$i{global}{Italy}{confirmed}-$$i{global}{Italy}{deaths}-$$i{global}{Italy}{recovered}) . ") **D:** $$i{global}{Italy}{deaths} (" . sprintf('%.2f', ($$i{global}{Italy}{deaths}/$$i{global}{Italy}{confirmed})*100) . "%) **R:** $$i{global}{Italy}{recovered}",
+                       'name'   => ':flag_es: **Spain**',
+                       'value'  => "**I:** $$i{global}{Spain}{confirmed} (**C:** " . ($$i{global}{Spain}{confirmed}-$$i{global}{Spain}{deaths}-$$i{global}{Spain}{recovered}) . ") **D:** $$i{global}{Spain}{deaths} (" . sprintf('%.2f', ($$i{global}{Spain}{deaths}/$$i{global}{Spain}{confirmed})*100) . "%) **R:** $$i{global}{Spain}{recovered}",
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_es: **Spain**',
-                       'value'  => "**I:** $$i{global}{Spain}{confirmed} (**C:** " . ($$i{global}{Spain}{confirmed}-$$i{global}{Spain}{deaths}-$$i{global}{Spain}{recovered}) . ") **D:** $$i{global}{Spain}{deaths} (" . sprintf('%.2f', ($$i{global}{Spain}{deaths}/$$i{global}{Spain}{confirmed})*100) . "%) **R:** $$i{global}{Spain}{recovered}",
+                       'name'   => ':flag_it: **Italy**',
+                       'value'  => "**I:** $$i{global}{Italy}{confirmed} (**C:** " . ($$i{global}{Italy}{confirmed}-$$i{global}{Italy}{deaths}-$$i{global}{Italy}{recovered}) . ") **D:** $$i{global}{Italy}{deaths} (" . sprintf('%.2f', ($$i{global}{Italy}{deaths}/$$i{global}{Italy}{confirmed})*100) . "%) **R:** $$i{global}{Italy}{recovered}",
                        'inline' => \0,
                     },
                     {
@@ -710,11 +706,6 @@ sub discord_on_message_create
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_ch: **Switzerland**',
-                       'value'  => "**I:** $$i{global}{Switzerland}{confirmed} (**C:** " . ($$i{global}{Switzerland}{confirmed}-$$i{global}{Switzerland}{deaths}-$$i{global}{Switzerland}{recovered}) . ") **D:** $$i{global}{Switzerland}{deaths} (" . sprintf('%.2f', ($$i{global}{Switzerland}{deaths}/$$i{global}{Switzerland}{confirmed})*100) . "%) **R:** $$i{global}{Switzerland}{recovered}",
-                       'inline' => \1,
-                    },
-                    {
                        'name'   => ':flag_tr: **Turkey**',
                        'value'  => "**I:** $$i{global}{Turkey}{confirmed} (**C:** " . ($$i{global}{Turkey}{confirmed}-$$i{global}{Turkey}{deaths}-$$i{global}{Turkey}{recovered}) . ") **D:** $$i{global}{Turkey}{deaths} (" . sprintf('%.2f', ($$i{global}{Turkey}{deaths}/$$i{global}{Turkey}{confirmed})*100) . "%) **R:** $$i{global}{Turkey}{recovered}",
                        'inline' => \1,
@@ -725,13 +716,13 @@ sub discord_on_message_create
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_nl: **Netherlands**',
-                       'value'  => "**I:** $$i{global}{Netherlands}{confirmed} (**C:** " . ($$i{global}{Netherlands}{confirmed}-$$i{global}{Netherlands}{deaths}-$$i{global}{Netherlands}{recovered}) . ") **D:** $$i{global}{Netherlands}{deaths} (" . sprintf('%.2f', ($$i{global}{Netherlands}{deaths}/$$i{global}{Netherlands}{confirmed})*100) . "%) **R:** $$i{global}{Netherlands}{recovered}",
+                       'name'   => ':flag_ch: **Switzerland**',
+                       'value'  => "**I:** $$i{global}{Switzerland}{confirmed} (**C:** " . ($$i{global}{Switzerland}{confirmed}-$$i{global}{Switzerland}{deaths}-$$i{global}{Switzerland}{recovered}) . ") **D:** $$i{global}{Switzerland}{deaths} (" . sprintf('%.2f', ($$i{global}{Switzerland}{deaths}/$$i{global}{Switzerland}{confirmed})*100) . "%) **R:** $$i{global}{Switzerland}{recovered}",
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_at: **Austria**',
-                       'value'  => "**I:** $$i{global}{Austria}{confirmed} (**C:** " . ($$i{global}{Austria}{confirmed}-$$i{global}{Austria}{deaths}-$$i{global}{Austria}{recovered}) . ") **D:** $$i{global}{Austria}{deaths} (" . sprintf('%.2f', ($$i{global}{Austria}{deaths}/$$i{global}{Austria}{confirmed})*100) . "%) **R:** $$i{global}{Austria}{recovered}",
+                       'name'   => ':flag_nl: **Netherlands**',
+                       'value'  => "**I:** $$i{global}{Netherlands}{confirmed} (**C:** " . ($$i{global}{Netherlands}{confirmed}-$$i{global}{Netherlands}{deaths}-$$i{global}{Netherlands}{recovered}) . ") **D:** $$i{global}{Netherlands}{deaths} (" . sprintf('%.2f', ($$i{global}{Netherlands}{deaths}/$$i{global}{Netherlands}{confirmed})*100) . "%) **R:** $$i{global}{Netherlands}{recovered}",
                        'inline' => \1,
                     },
                     {
@@ -740,8 +731,13 @@ sub discord_on_message_create
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_kr: **South Korea**',
-                       'value'  => "**I:** $$i{global}{'South Korea'}{confirmed} (**C:** " . ($$i{global}{'South Korea'}{confirmed}-$$i{global}{'South Korea'}{deaths}-$$i{global}{'South Korea'}{recovered}) . ") **D:** $$i{global}{'South Korea'}{deaths} (" . sprintf('%.2f', ($$i{global}{'South Korea'}{deaths}/$$i{global}{'South Korea'}{confirmed})*100) . "%) **R:** $$i{global}{'South Korea'}{recovered}",
+                       'name'   => ':flag_br: **Brazil**',
+                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => ':flag_at: **Austria**',
+                       'value'  => "**I:** $$i{global}{Austria}{confirmed} (**C:** " . ($$i{global}{Austria}{confirmed}-$$i{global}{Austria}{deaths}-$$i{global}{Austria}{recovered}) . ") **D:** $$i{global}{Austria}{deaths} (" . sprintf('%.2f', ($$i{global}{Austria}{deaths}/$$i{global}{Austria}{confirmed})*100) . "%) **R:** $$i{global}{Austria}{recovered}",
                        'inline' => \1,
                     },
                     {
@@ -750,8 +746,8 @@ sub discord_on_message_create
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_br: **Brazil**',
-                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'name'   => ':flag_kr: **South Korea**',
+                       'value'  => "**I:** $$i{global}{'South Korea'}{confirmed} (**C:** " . ($$i{global}{'South Korea'}{confirmed}-$$i{global}{'South Korea'}{deaths}-$$i{global}{'South Korea'}{recovered}) . ") **D:** $$i{global}{'South Korea'}{deaths} (" . sprintf('%.2f', ($$i{global}{'South Korea'}{deaths}/$$i{global}{'South Korea'}{confirmed})*100) . "%) **R:** $$i{global}{'South Korea'}{recovered}",
                        'inline' => \1,
                     },
                     {
@@ -760,8 +756,8 @@ sub discord_on_message_create
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_se: **Sweden**',
-                       'value'  => "**I:** $$i{global}{Sweden}{confirmed} (**C:** " . ($$i{global}{Sweden}{confirmed}-$$i{global}{Sweden}{deaths}-$$i{global}{Sweden}{recovered}) . ") **D:** $$i{global}{Sweden}{deaths} (" . sprintf('%.2f', ($$i{global}{Sweden}{deaths}/$$i{global}{Sweden}{confirmed})*100) . "%) **R:** $$i{global}{Sweden}{recovered}",
+                       'name'   => ':flag_ru: **Russia**',
+                       'value'  => "**I:** $$i{global}{Russia}{confirmed} (**C:** " . ($$i{global}{Russia}{confirmed}-$$i{global}{Russia}{deaths}-$$i{global}{Russia}{recovered}) . ") **D:** $$i{global}{Russia}{deaths} (" . sprintf('%.2f', ($$i{global}{Russia}{deaths}/$$i{global}{Russia}{confirmed})*100) . "%) **R:** $$i{global}{Russia}{recovered}",
                        'inline' => \1,
                     },
                     ],
@@ -813,7 +809,7 @@ sub discord_on_message_create
             my $capr    = $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} ? $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} : 0;
             my $favmap  = $stats->[0]->{fav_maps}->{overall}->{map_name};
             my $favmapt = $stats->[0]->{fav_maps}->{overall}->{game_type_cd};
-            my $last    = $stats->[0]->{overall_stats}->{overall}->{last_played_fuzzy};
+            my $lastp   = $stats->[0]->{overall_stats}->{overall}->{last_played_fuzzy};
 
             my $embed = {
                'color' => '15844367',
@@ -821,18 +817,18 @@ sub discord_on_message_create
                   'name' => 'XonStat',
                   'url' => 'https://stats.xonotic.org',
                 },
-   #             'thumbnail' => {
-   #                'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
-   #                'width' => 38,
-   #                'height' => 38,
-   #             },
+#               'thumbnail' => {
+#                  'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
+#                  'width' => 38,
+#                  'height' => 38,
+#               },
                 'image' => {
                    'url' => "https://stats.xonotic.org/static/badges/$qid.png?" . time, # work around discord image caching
                    'width' => 650,
                    'height' => 70,
                 },
                 'footer' => {
-                   'text' => "Last played: $last",
+                   'text' => "Last played: $lastp",
                 },
                 'fields' => [
                  {
@@ -870,7 +866,8 @@ sub discord_on_message_create
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && $channel ne $$config{'wufluchan'} )
          {
             my @args = split(/ /, $1);
-            my $year = pop(@args) if ($args[$#args] =~ /^\d{4}$/);
+            my $year;
+            $year = pop(@args) if ($args[-1] =~ /^\d{4}$/);
             my $title = uri_escape("@args");
 
             my $type = 't';
@@ -898,7 +895,7 @@ sub discord_on_message_create
                $footer .= "; Writer: $$omdb{Writer}"     unless ( $$omdb{Writer}   eq 'N/A' );
                $footer .= "; Director: $$omdb{Director}" unless ( $$omdb{Director} eq 'N/A' );
                $footer .= "; Awards: $$omdb{Awards}"     unless ( $$omdb{Awards}   eq 'N/A' );
-               substr($footer, 0, 2) = ''                if     ( $$omdb{Rated}    eq 'N/A' );
+               substr($footer, 0, 2, '')                 if     ( $$omdb{Rated}    eq 'N/A' );
 
                my $embed = {
                   'color' => '15844367',
@@ -952,7 +949,7 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
          {
-            my (@x, $y);
+            my @x;
 
             $msg =~ s/`//g;
             $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
@@ -962,6 +959,8 @@ sub discord_on_message_create
          }
       }
    });
+
+   return;
 }
 
 
@@ -973,6 +972,8 @@ sub discord_on_ready
       add_me($hash->{'user'});
       $discord->status_update( { 'name' => $$config{'game'}, type => 0 } ) if ( $$config{'game'} );
    });
+
+   return;
 }
 
 sub add_me
@@ -980,6 +981,8 @@ sub add_me
    my ($user) = @_;
    $self->{'id'} = $user->{'id'};
    add_user($user);
+
+   return;
 }
 
 sub add_user
@@ -987,6 +990,8 @@ sub add_user
    my ($user) = @_;
    my $id = $user->{'id'};
    $self->{'users'}{$id} = $user;
+
+   return;
 }
 
 sub add_guild
@@ -1005,11 +1010,13 @@ sub add_guild
    {
       $self->{'rolenames'}{$role->{'id'}} = $role->{'name'};
    }
+
+   return;
 }
 
 sub duration
 {
-   my $sec = shift;
+   my $sec = shift || return 0;
 
    my @gmt = gmtime($sec);
 
@@ -1018,5 +1025,4 @@ sub duration
             ($gmt[7] ? ($gmt[5]                                  ? ' ' : '').$gmt[7].'d' : '').
             ($gmt[2] ? ($gmt[5] || $gmt[7]                       ? ' ' : '').$gmt[2].'h' : '').
             ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2]            ? ' ' : '').$gmt[1].'m' : '');
-            ($gmt[0] ? ($gmt[5] || $gmt[7] || $gmt[2] || $gmt[1] ? ' ' : '').$gmt[0].'s' : '');
 }
