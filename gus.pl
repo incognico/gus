@@ -36,7 +36,7 @@ use Geo::Coder::Google;
 use Weather::YR;
 use URI::Escape;
 use MaxMind::DB::Reader;
-use Encode;
+use Encode::Simple qw(encode_utf8 decode_utf8);
 
 $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 6 );
@@ -173,7 +173,7 @@ my $filestream = IO::Async::FileStream->new(
 
       while ( $$buffref =~ s/^(.*\n)// )
       {
-         my $line = Encode::decode_utf8($1);
+         my $line = decode_utf8($1);
 
          chomp( $line );
 
@@ -361,7 +361,7 @@ sub discord_on_message_create
                    'fields' => [
                    {
                       'name'   => 'Name',
-                      'value'  => "**[".Encode::decode_utf8($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
+                      'value'  => "**[".decode_utf8($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
                       'inline' => \1,
                     },
                     {
@@ -599,7 +599,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
                return;
             }
-            my $ud = from_json ( Encode::decode_utf8( $r->decoded_content ) );
+            my $ud = from_json ( decode_utf8( $r->decoded_content ) );
 
             if ( !defined $$ud{error} && defined $$ud{list} )
             {
@@ -884,7 +884,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
                return;
             }
-            my $omdb = from_json ( Encode::decode_utf8( $r->decoded_content ) );
+            my $omdb = from_json ( decode_utf8( $r->decoded_content ) );
 
             if ($$omdb{Response} eq 'True')
             {
