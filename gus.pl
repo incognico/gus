@@ -17,7 +17,7 @@ use lib '/etc/perl';
 
 no warnings 'experimental::smartmatch';
 
-binmode( STDOUT, ":utf8" );
+binmode( STDOUT, ":encoding(UTF-8)" );
 
 #use Data::Dumper;
 use Mojo::Discord;
@@ -867,11 +867,12 @@ sub discord_on_message_create
          {
             my @args = split(/ /, $1);
             my $year;
-            $year = pop(@args) if ($args[-1] =~ /^\d{4}$/);
-            my $title = uri_escape("@args");
+            $year = pop(@args) if ($args[-1] =~ /^\(?\d{4}\)?$/);
+            $year =~ s/[^\d]//g;
+            my $title = join ' ', @args;
 
             my $type = 't';
-            $type = 'i' if ($title =~ /((?:tt)?\d{7,8})/);
+            $type = 'i' if ($title =~ /(tt\d{7,8})/);
 
             my $url = 'http://www.omdbapi.com/?apikey=' . $$config{'omdbapikey'};
             $url .= '&' . $type . '=' . $title;
