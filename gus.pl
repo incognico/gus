@@ -282,10 +282,13 @@ sub discord_on_message_create
          {
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
-            $msg =~ s/<@(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g; # user/nick
+            $msg =~ s/\R/ /g;
+            $msg =~ s/<@!?(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g; # user/nick, ! is quote
             $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
             $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
             $msg =~ s/<(:.+:)\d+>/$1/g; # emoji
+
+            return unless $msg;
 
             say localtime(time) . " <- <$$author{'username'}> $msg";
 
@@ -956,7 +959,7 @@ sub discord_on_message_create
             $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
             $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
 
-            $discord->send_message( $channel, "`@x`" );
+            $discord->send_message( $channel, join '', @x );
          }
       }
    });
