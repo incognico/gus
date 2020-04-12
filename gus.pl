@@ -599,7 +599,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
                return;
             }
-            my $ud = from_json ( decode_utf8( $r->decoded_content ) );
+            my $ud = decode_json ( $r->decoded_content );
 
             if ( !defined $$ud{error} && defined $$ud{list} )
             {
@@ -884,7 +884,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
                return;
             }
-            my $omdb = from_json ( decode_utf8( $r->decoded_content ) );
+            my $omdb = decode_json ( $r->decoded_content );
 
             if ($$omdb{Response} eq 'True')
             {
