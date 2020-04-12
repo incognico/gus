@@ -95,6 +95,7 @@ my $maps = {
    'hidoi_map2'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
    'hl_c00'               => '<:flower:458608402549964814> Half-Life',
    'island'               => ':island: Comfy, island',
+   'mustard_b'            => ':hotdog: Mustard Factory',
    'of0a0'                => '<:flower:458608402549964814> HL: Opposing Force',
    'of_utbm'              => ':new_moon: OP4: Under the Black Moon',
    'otokotati_no_kouzan'  => ':hammer_pick: Otokotati No Kouzan',
