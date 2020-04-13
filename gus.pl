@@ -140,7 +140,8 @@ my @winddesc = (
    'Hurricane'
 );
 
-my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
+#my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
+my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||__|\*|~|>)/;
 
 ###
 
@@ -872,7 +873,7 @@ sub discord_on_message_create
             my @args = split(/ /, $1);
             my $year;
             $year = pop(@args) if ($args[-1] =~ /^\(?\d{4}\)?$/);
-            $year =~ s/[^\d]//g;
+            $year =~ s/[^\d]//g if ($year);
             my $title = join ' ', @args;
 
             my $type = 't';
