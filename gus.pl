@@ -36,7 +36,7 @@ use Geo::Coder::Google;
 use Weather::YR;
 use URI::Escape;
 use MaxMind::DB::Reader;
-use Encode::Simple qw(encode_utf8 decode_utf8);
+use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
 
 $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 6 );
@@ -175,7 +175,7 @@ my $filestream = IO::Async::FileStream->new(
 
       while ( $$buffref =~ s/^(.*\n)// )
       {
-         my $line = decode_utf8($1);
+         my $line = decode_utf8_lax($1);
 
          chomp( $line );
 
@@ -366,7 +366,7 @@ sub discord_on_message_create
                    'fields' => [
                    {
                       'name'   => 'Name',
-                      'value'  => "**[".decode_utf8($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
+                      'value'  => "**[".decode_utf8_lax($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
                       'inline' => \1,
                     },
                     {
@@ -701,69 +701,54 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_ir: **Iran**',
-                       'value'  => "**I:** $$i{global}{Iran}{confirmed} (**C:** " . ($$i{global}{Iran}{confirmed}-$$i{global}{Iran}{deaths}-$$i{global}{Iran}{recovered}) . ") **D:** $$i{global}{Iran}{deaths} (" . sprintf('%.2f', ($$i{global}{Iran}{deaths}/$$i{global}{Iran}{confirmed})*100) . "%) **R:** $$i{global}{Iran}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
                        'name'   => ':flag_gb: **United Kingdom**',
                        'value'  => "**I:** $$i{global}{'United Kingdom'}{confirmed} (**C:** " . ($$i{global}{'United Kingdom'}{confirmed}-$$i{global}{'United Kingdom'}{deaths}-$$i{global}{'United Kingdom'}{recovered}) . ") **D:** $$i{global}{'United Kingdom'}{deaths} (" . sprintf('%.2f', ($$i{global}{'United Kingdom'}{deaths}/$$i{global}{'United Kingdom'}{confirmed})*100) . "%) **R:** $$i{global}{'United Kingdom'}{recovered}",
                        'inline' => \1,
                     },
                     {
+                       'name'   => ':flag_ir: **Iran**',
+                       'value'  => "**I:** $$i{global}{Iran}{confirmed} (**C:** " . ($$i{global}{Iran}{confirmed}-$$i{global}{Iran}{deaths}-$$i{global}{Iran}{recovered}) . ") **D:** $$i{global}{Iran}{deaths} (" . sprintf('%.2f', ($$i{global}{Iran}{deaths}/$$i{global}{Iran}{confirmed})*100) . "%) **R:** $$i{global}{Iran}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
                        'name'   => ':flag_tr: **Turkey**',
                        'value'  => "**I:** $$i{global}{Turkey}{confirmed} (**C:** " . ($$i{global}{Turkey}{confirmed}-$$i{global}{Turkey}{deaths}-$$i{global}{Turkey}{recovered}) . ") **D:** $$i{global}{Turkey}{deaths} (" . sprintf('%.2f', ($$i{global}{Turkey}{deaths}/$$i{global}{Turkey}{confirmed})*100) . "%) **R:** $$i{global}{Turkey}{recovered}",
-                       'inline' => \1,
+                       'inline' => \0,
                     },
                     {
                        'name'   => ':flag_be: **Belgium**',
                        'value'  => "**I:** $$i{global}{Belgium}{confirmed} (**C:** " . ($$i{global}{Belgium}{confirmed}-$$i{global}{Belgium}{deaths}-$$i{global}{Belgium}{recovered}) . ") **D:** $$i{global}{Belgium}{deaths} (" . sprintf('%.2f', ($$i{global}{Belgium}{deaths}/$$i{global}{Belgium}{confirmed})*100) . "%) **R:** $$i{global}{Belgium}{recovered}",
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_ch: **Switzerland**',
-                       'value'  => "**I:** $$i{global}{Switzerland}{confirmed} (**C:** " . ($$i{global}{Switzerland}{confirmed}-$$i{global}{Switzerland}{deaths}-$$i{global}{Switzerland}{recovered}) . ") **D:** $$i{global}{Switzerland}{deaths} (" . sprintf('%.2f', ($$i{global}{Switzerland}{deaths}/$$i{global}{Switzerland}{confirmed})*100) . "%) **R:** $$i{global}{Switzerland}{recovered}",
-                       'inline' => \1,
+                       'inline' => \0,
                     },
                     {
                        'name'   => ':flag_nl: **Netherlands**',
                        'value'  => "**I:** $$i{global}{Netherlands}{confirmed} (**C:** " . ($$i{global}{Netherlands}{confirmed}-$$i{global}{Netherlands}{deaths}-$$i{global}{Netherlands}{recovered}) . ") **D:** $$i{global}{Netherlands}{deaths} (" . sprintf('%.2f', ($$i{global}{Netherlands}{deaths}/$$i{global}{Netherlands}{confirmed})*100) . "%) **R:** $$i{global}{Netherlands}{recovered}",
-                       'inline' => \1,
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_ch: **Switzerland**',
+                       'value'  => "**I:** $$i{global}{Switzerland}{confirmed} (**C:** " . ($$i{global}{Switzerland}{confirmed}-$$i{global}{Switzerland}{deaths}-$$i{global}{Switzerland}{recovered}) . ") **D:** $$i{global}{Switzerland}{deaths} (" . sprintf('%.2f', ($$i{global}{Switzerland}{deaths}/$$i{global}{Switzerland}{confirmed})*100) . "%) **R:** $$i{global}{Switzerland}{recovered}",
+                       'inline' => \0,
                     },
                     {
                        'name'   => ':flag_ca: **Canada**',
                        'value'  => "**I:** $$i{global}{Canada}{confirmed} (**C:** " . ($$i{global}{Canada}{confirmed}-$$i{global}{Canada}{deaths}-$$i{global}{Canada}{recovered}) . ") **D:** $$i{global}{Canada}{deaths} (" . sprintf('%.2f', ($$i{global}{Canada}{deaths}/$$i{global}{Canada}{confirmed})*100) . "%) **R:** $$i{global}{Canada}{recovered}",
-                       'inline' => \1,
+                       'inline' => \0,
                     },
                     {
                        'name'   => ':flag_br: **Brazil**',
                        'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_at: **Austria**',
-                       'value'  => "**I:** $$i{global}{Austria}{confirmed} (**C:** " . ($$i{global}{Austria}{confirmed}-$$i{global}{Austria}{deaths}-$$i{global}{Austria}{recovered}) . ") **D:** $$i{global}{Austria}{deaths} (" . sprintf('%.2f', ($$i{global}{Austria}{deaths}/$$i{global}{Austria}{confirmed})*100) . "%) **R:** $$i{global}{Austria}{recovered}",
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_pt: **Portugal**',
-                       'value'  => "**I:** $$i{global}{Portugal}{confirmed} (**C:** " . ($$i{global}{Portugal}{confirmed}-$$i{global}{Portugal}{deaths}-$$i{global}{Portugal}{recovered}) . ") **D:** $$i{global}{Portugal}{deaths} (" . sprintf('%.2f', ($$i{global}{Portugal}{deaths}/$$i{global}{Portugal}{confirmed})*100) . "%) **R:** $$i{global}{Portugal}{recovered}",
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_kr: **South Korea**',
-                       'value'  => "**I:** $$i{global}{'South Korea'}{confirmed} (**C:** " . ($$i{global}{'South Korea'}{confirmed}-$$i{global}{'South Korea'}{deaths}-$$i{global}{'South Korea'}{recovered}) . ") **D:** $$i{global}{'South Korea'}{deaths} (" . sprintf('%.2f', ($$i{global}{'South Korea'}{deaths}/$$i{global}{'South Korea'}{confirmed})*100) . "%) **R:** $$i{global}{'South Korea'}{recovered}",
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_il: **Israel**',
-                       'value'  => "**I:** $$i{global}{Israel}{confirmed} (**C:** " . ($$i{global}{Israel}{confirmed}-$$i{global}{Israel}{deaths}-$$i{global}{Israel}{recovered}) . ") **D:** $$i{global}{Israel}{deaths} (" . sprintf('%.2f', ($$i{global}{Israel}{deaths}/$$i{global}{Israel}{confirmed})*100) . "%) **R:** $$i{global}{Israel}{recovered}",
-                       'inline' => \1,
+                       'inline' => \0,
                     },
                     {
                        'name'   => ':flag_ru: **Russia**',
                        'value'  => "**I:** $$i{global}{Russia}{confirmed} (**C:** " . ($$i{global}{Russia}{confirmed}-$$i{global}{Russia}{deaths}-$$i{global}{Russia}{recovered}) . ") **D:** $$i{global}{Russia}{deaths} (" . sprintf('%.2f', ($$i{global}{Russia}{deaths}/$$i{global}{Russia}{confirmed})*100) . "%) **R:** $$i{global}{Russia}{recovered}",
-                       'inline' => \1,
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_pt: **Portugal**',
+                       'value'  => "**I:** $$i{global}{Portugal}{confirmed} (**C:** " . ($$i{global}{Portugal}{confirmed}-$$i{global}{Portugal}{deaths}-$$i{global}{Portugal}{recovered}) . ") **D:** $$i{global}{Portugal}{deaths} (" . sprintf('%.2f', ($$i{global}{Portugal}{deaths}/$$i{global}{Portugal}{confirmed})*100) . "%) **R:** $$i{global}{Portugal}{recovered}",
+                       'inline' => \0,
                     },
                     ],
                };
