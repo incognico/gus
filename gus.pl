@@ -25,7 +25,7 @@ use IO::Async::Loop::Mojo;
 use IO::Async::FileStream;
 use DBI;
 use DBD::SQLite::Constants ':file_open';
-use LWP::Simple qw( $ua get );
+use LWP::Simple qw($ua get);
 use LWP::UserAgent;
 use JSON;
 use Net::SRCDS::Queries;
@@ -45,25 +45,25 @@ my $self;
 
 my $config = {
    game         => 'Sven Co-op @ twlz',
-   chatlinkchan => '458683388887302155',
-   mainchan     => '458323696910598167',
-   wufluchan    => '673626913864155187',
-   kekchan      => '541343127550558228',
-   ayayachan    => '459345843942588427',
+   chatlinkchan => 458683388887302155,
+   mainchan     => 458323696910598167,
+   wufluchan    => 673626913864155187,
+   kekchan      => 541343127550558228,
+   ayayachan    => 459345843942588427,
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
    steamapikey  => '',
    steamapiurl  => 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=',
    steamapiurl2 => 'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=',
-   serverport   => '27015',
+   serverport   => 27015,
    gmapikey     => '',
    geo          => "$ENV{HOME}/gus/GeoLite2-City.mmdb",
    omdbapikey   => '',
 
    discord => {
-      client_id => '',
-      owner_id  => '373912992758235148',
+      client_id => ,
+      owner_id  => 373912992758235148,
    }
 };
 
@@ -77,6 +77,7 @@ my $discord = Mojo::Discord->new(
    'logdir'    => "$ENV{HOME}/gus",
    'logfile'   => 'discord.log',
    'loglevel'  => 'info',
+   'rate_limits' => 0, # until Mojo::Discord is fixed
 );
 
 my $maps = {
@@ -198,7 +199,7 @@ my $filestream = IO::Async::FileStream->new(
                 'fields' => [
                 {
                    'name'   => 'Map',
-                   'value'  => "$data[1] ",
+                   'value'  => $data[1],
                    'inline' => \1,
                 },
                 {
@@ -763,95 +764,6 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
             }
 
-         }
-         elsif ( $msg =~ /^!xon(?:stat)?s? (.+)/i && $channel ne $$config{'wufluchan'} )
-         {
-            my ($qid, $stats);
-            ($qid = $1) =~ s/[^0-9]//g;
-
-            unless ($qid) {
-               $discord->send_message( $channel, 'Invalid player ID');
-               return;
-            }
-
-            my $xonstaturl = 'https://stats.xonotic.org/player/';
-            my $json = get( $xonstaturl . $qid . '.json');
-
-            if ($json) {
-               eval { $stats = decode_json($json) };
-            }
-            else {
-               $discord->send_message( $channel, 'No response from server; Correct player ID?');
-               return;
-            }
-
-            my $snick   = $stats->[0]->{player}->{stripped_nick};
-            my $games   = $stats->[0]->{games_played}->{overall}->{games};
-            my $win     = $stats->[0]->{games_played}->{overall}->{wins};
-            my $loss    = $stats->[0]->{games_played}->{overall}->{losses};
-            my $pct     = $stats->[0]->{games_played}->{overall}->{win_pct};
-            my $kills   = $stats->[0]->{overall_stats}->{overall}->{total_kills};
-            my $deaths  = $stats->[0]->{overall_stats}->{overall}->{total_deaths};
-            my $ratio   = $stats->[0]->{overall_stats}->{overall}->{k_d_ratio};
-            my $elo     = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{elo}          : 0;
-            my $elot    = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{game_type_cd} : 0;
-            my $elog    = $stats->[0]->{elos}->{overall}->{elo} ? $stats->[0]->{elos}->{overall}->{games}        : 0;
-            my $capr    = $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} ? $stats->[0]->{overall_stats}->{ctf}->{cap_ratio} : 0;
-            my $favmap  = $stats->[0]->{fav_maps}->{overall}->{map_name};
-            my $favmapt = $stats->[0]->{fav_maps}->{overall}->{game_type_cd};
-            my $lastp   = $stats->[0]->{overall_stats}->{overall}->{last_played_fuzzy};
-
-            my $embed = {
-               'color' => '15844367',
-               'provider' => {
-                  'name' => 'XonStat',
-                  'url' => 'https://stats.xonotic.org',
-                },
-#               'thumbnail' => {
-#                  'url' => "https://cdn.discordapp.com/emojis/458355320364859393.png?v=1",
-#                  'width' => 38,
-#                  'height' => 38,
-#               },
-                'image' => {
-                   'url' => "https://stats.xonotic.org/static/badges/$qid.png?" . time, # work around discord image caching
-                   'width' => 650,
-                   'height' => 70,
-                },
-                'footer' => {
-                   'text' => "Last played: $lastp",
-                },
-                'fields' => [
-                 {
-                    'name'   => 'Name',
-                    'value'  => "**[$snick]($xonstaturl$qid)**",
-                    'inline' => \1,
-                 },
-                 {
-                    'name'   => 'Games Played',
-                    'value'  => $games,
-                    'inline' => \1,
-                 },
-                 {
-                    'name'   => 'Favourite Map',
-                    'value'  => sprintf('%s (%s)', $favmap, $favmapt),
-                    'inline' => \1,
-                 },
-                 {
-                    'name'   => 'Cap Ratio',
-                    'value'  => $capr ? sprintf('%.2f', $capr) : '-',
-                    'inline' => \1,
-                 },
-                 ],
-            };
-
-            my $message = {
-               'content' => '',
-               'embed' => $embed,
-            };
-
-            $discord->send_message( $channel, $message );
-
-   #     main::msg($target, "%s :: games: %d/%d/%d (%.2f%% win) :: k/d: %.2f (%d/%d)%s :: fav map: %s (%s) :: last played %s", $snick, $games, $win, $loss, $pct, $ratio, $kills, $deaths, ($elo && $elo ne 100) ? sprintf(' :: %s elo: %.2f (%d games%s)', $elot, $elo, $elog, $elot eq 'ctf' ? sprintf(', %.2f cr', $capr) : '' ) : '', $favmap, $favmapt, $last);
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && $channel ne $$config{'wufluchan'} )
          {
