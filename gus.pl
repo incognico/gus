@@ -45,11 +45,6 @@ my $self;
 
 my $config = {
    game         => 'Sven Co-op @ twlz',
-   chatlinkchan => 458683388887302155,
-   mainchan     => 458323696910598167,
-   wufluchan    => 673626913864155187,
-   kekchan      => 541343127550558228,
-   ayayachan    => 459345843942588427,
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
@@ -62,8 +57,14 @@ my $config = {
    omdbapikey   => '',
 
    discord => {
-      client_id => ,
-      owner_id  => 373912992758235148,
+      linkchan   => 458683388887302155,
+      mainchan   => 458323696910598167,
+      wufluchan  => 673626913864155187,
+      nsfwchan   => 541343127550558228,
+      ayayachan  => 459345843942588427,
+      nocmdchans => [706113584626663475, 610862900357234698, 673626913864155187, 698803767512006677],
+      client_id  => ,
+      owner_id   => 373912992758235148,
    }
 };
 
@@ -215,13 +216,13 @@ my $filestream = IO::Async::FileStream->new(
                'embed' => $embed,
             };
             
-            $discord->send_message( $$config{'chatlinkchan'}, $message );
+            $discord->send_message( $$config{discord}{linkchan}, $message );
 
             if ( exists $$maps{$data[1]} && $$maps{$data[1]} ne $lastmap )
             {
                my $s = '';
                $s = 's' if ( $data[2] > 1 );
-               $discord->send_message( $$config{'mainchan'}, "**$$maps{$data[1]}** has started with **$data[2]** player$s!" );
+               $discord->send_message( $$config{discord}{mainchan}, "**$$maps{$data[1]}** has started with **$data[2]** player$s!" );
                $lastmap = $$maps{$data[1]};
             }
          }
@@ -244,7 +245,7 @@ my $filestream = IO::Async::FileStream->new(
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
-            $discord->send_message( $$config{'chatlinkchan'}, ':flag_' . ($r->{country}{iso_code} ? lc($r->{country}{iso_code}) : 'white') . ': ' . $final );
+            $discord->send_message( $$config{discord}{linkchan}, ':flag_' . ($r->{country}{iso_code} ? lc($r->{country}{iso_code}) : 'white') . ': ' . $final );
          }
       }
       return 0;
@@ -281,7 +282,7 @@ sub discord_on_message_create
          $msg =~ s/\@+everyone/everyone/g;
          $msg =~ s/\@+here/here/g;
 
-         if ( $channel eq $$config{'chatlinkchan'} )
+         if ( $channel eq $$config{discord}{linkchan} )
          {
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
@@ -305,7 +306,7 @@ sub discord_on_message_create
             my ($stmt, @bind, $r);
 
             my $nsa;
-            $nsa = 1 if ( $channel eq $$config{'ayayachan'} );
+            $nsa = 1 if ( $channel eq $$config{discord}{ayayachan} );
 
             if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
             {
@@ -414,7 +415,7 @@ sub discord_on_message_create
                 $discord->send_message( $channel, "`No results`" );
             }
          }
-         elsif ( $msg =~ /^!stat(us|su)/i && $channel ne $$config{'wufluchan'} )
+         elsif ( $msg =~ /^!stat(us|su)/i && $channel !~ @{$$config{discord}{nocmdchans}} )
          {
             my $if       = IO::Interface::Simple->new('lo');
             my $addr     = $if->address;
@@ -443,7 +444,7 @@ sub discord_on_message_create
                $discord->send_message( $channel, $dmsg );
             }
          }
-         elsif ( $msg =~ /^!w(?:eather)? (.+)/i && $channel ne $$config{'wufluchan'} )
+         elsif ( $msg =~ /^!w(?:eather)? (.+)/i && $channel !~ @{$$config{discord}{nocmdchans}} )
          {
             my ($loc, $lat, $lon);
             my $alt = 0;
@@ -559,7 +560,7 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, $message );
          }
-         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{'kekchan'} )
+         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{nsfwchan} )
          {
             my $type = defined $1 ? lc($1) : 'random';
             $type =~ s/ //g;
@@ -593,7 +594,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
             }
          }
-         elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{'kekchan'} )
+         elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{nsfwchan} )
          {
             my $input = $1;
             my $query = uri_escape( $input );
@@ -632,7 +633,7 @@ sub discord_on_message_create
                $discord->send_message( $channel, '`Error fetching data`' );
             }
          }
-         elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{'wufluchan'} )
+         elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{discord}{wufluchan} )
          {
             my $ncov = 'https://raw.githubusercontent.com/montanaflynn/covid-19/master/data/current.json';
             my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
@@ -692,53 +693,13 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_de: **Germany**',
-                       'value'  => "**I:** $$i{global}{Germany}{confirmed} (**C:** " . ($$i{global}{Germany}{confirmed}-$$i{global}{Germany}{deaths}-$$i{global}{Germany}{recovered}) . ") **D:** $$i{global}{Germany}{deaths} (" . sprintf('%.2f', ($$i{global}{Germany}{deaths}/$$i{global}{Germany}{confirmed})*100) . "%) **R:** $$i{global}{Germany}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_fr: **France**',
-                       'value'  => "**I:** $$i{global}{France}{confirmed} (**C:** " . ($$i{global}{France}{confirmed}-$$i{global}{France}{deaths}-$$i{global}{France}{recovered}) . ") **D:** $$i{global}{France}{deaths} (" . sprintf('%.2f', ($$i{global}{France}{deaths}/$$i{global}{France}{confirmed})*100) . "%) **R:** $$i{global}{France}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
                        'name'   => ':flag_gb: **United Kingdom**',
                        'value'  => "**I:** $$i{global}{'United Kingdom'}{confirmed} (**C:** " . ($$i{global}{'United Kingdom'}{confirmed}-$$i{global}{'United Kingdom'}{deaths}-$$i{global}{'United Kingdom'}{recovered}) . ") **D:** $$i{global}{'United Kingdom'}{deaths} (" . sprintf('%.2f', ($$i{global}{'United Kingdom'}{deaths}/$$i{global}{'United Kingdom'}{confirmed})*100) . "%) **R:** $$i{global}{'United Kingdom'}{recovered}",
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_ir: **Iran**',
-                       'value'  => "**I:** $$i{global}{Iran}{confirmed} (**C:** " . ($$i{global}{Iran}{confirmed}-$$i{global}{Iran}{deaths}-$$i{global}{Iran}{recovered}) . ") **D:** $$i{global}{Iran}{deaths} (" . sprintf('%.2f', ($$i{global}{Iran}{deaths}/$$i{global}{Iran}{confirmed})*100) . "%) **R:** $$i{global}{Iran}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_tr: **Turkey**',
-                       'value'  => "**I:** $$i{global}{Turkey}{confirmed} (**C:** " . ($$i{global}{Turkey}{confirmed}-$$i{global}{Turkey}{deaths}-$$i{global}{Turkey}{recovered}) . ") **D:** $$i{global}{Turkey}{deaths} (" . sprintf('%.2f', ($$i{global}{Turkey}{deaths}/$$i{global}{Turkey}{confirmed})*100) . "%) **R:** $$i{global}{Turkey}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_be: **Belgium**',
-                       'value'  => "**I:** $$i{global}{Belgium}{confirmed} (**C:** " . ($$i{global}{Belgium}{confirmed}-$$i{global}{Belgium}{deaths}-$$i{global}{Belgium}{recovered}) . ") **D:** $$i{global}{Belgium}{deaths} (" . sprintf('%.2f', ($$i{global}{Belgium}{deaths}/$$i{global}{Belgium}{confirmed})*100) . "%) **R:** $$i{global}{Belgium}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_nl: **Netherlands**',
-                       'value'  => "**I:** $$i{global}{Netherlands}{confirmed} (**C:** " . ($$i{global}{Netherlands}{confirmed}-$$i{global}{Netherlands}{deaths}-$$i{global}{Netherlands}{recovered}) . ") **D:** $$i{global}{Netherlands}{deaths} (" . sprintf('%.2f', ($$i{global}{Netherlands}{deaths}/$$i{global}{Netherlands}{confirmed})*100) . "%) **R:** $$i{global}{Netherlands}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_ch: **Switzerland**',
-                       'value'  => "**I:** $$i{global}{Switzerland}{confirmed} (**C:** " . ($$i{global}{Switzerland}{confirmed}-$$i{global}{Switzerland}{deaths}-$$i{global}{Switzerland}{recovered}) . ") **D:** $$i{global}{Switzerland}{deaths} (" . sprintf('%.2f', ($$i{global}{Switzerland}{deaths}/$$i{global}{Switzerland}{confirmed})*100) . "%) **R:** $$i{global}{Switzerland}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_ca: **Canada**',
-                       'value'  => "**I:** $$i{global}{Canada}{confirmed} (**C:** " . ($$i{global}{Canada}{confirmed}-$$i{global}{Canada}{deaths}-$$i{global}{Canada}{recovered}) . ") **D:** $$i{global}{Canada}{deaths} (" . sprintf('%.2f', ($$i{global}{Canada}{deaths}/$$i{global}{Canada}{confirmed})*100) . "%) **R:** $$i{global}{Canada}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_br: **Brazil**',
-                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'name'   => ':flag_de: **Germany**',
+                       'value'  => "**I:** $$i{global}{Germany}{confirmed} (**C:** " . ($$i{global}{Germany}{confirmed}-$$i{global}{Germany}{deaths}-$$i{global}{Germany}{recovered}) . ") **D:** $$i{global}{Germany}{deaths} (" . sprintf('%.2f', ($$i{global}{Germany}{deaths}/$$i{global}{Germany}{confirmed})*100) . "%) **R:** $$i{global}{Germany}{recovered}",
                        'inline' => \0,
                     },
                     {
@@ -747,8 +708,48 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_pt: **Portugal**',
-                       'value'  => "**I:** $$i{global}{Portugal}{confirmed} (**C:** " . ($$i{global}{Portugal}{confirmed}-$$i{global}{Portugal}{deaths}-$$i{global}{Portugal}{recovered}) . ") **D:** $$i{global}{Portugal}{deaths} (" . sprintf('%.2f', ($$i{global}{Portugal}{deaths}/$$i{global}{Portugal}{confirmed})*100) . "%) **R:** $$i{global}{Portugal}{recovered}",
+                       'name'   => ':flag_fr: **France**',
+                       'value'  => "**I:** $$i{global}{France}{confirmed} (**C:** " . ($$i{global}{France}{confirmed}-$$i{global}{France}{deaths}-$$i{global}{France}{recovered}) . ") **D:** $$i{global}{France}{deaths} (" . sprintf('%.2f', ($$i{global}{France}{deaths}/$$i{global}{France}{confirmed})*100) . "%) **R:** $$i{global}{France}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_tr: **Turkey**',
+                       'value'  => "**I:** $$i{global}{Turkey}{confirmed} (**C:** " . ($$i{global}{Turkey}{confirmed}-$$i{global}{Turkey}{deaths}-$$i{global}{Turkey}{recovered}) . ") **D:** $$i{global}{Turkey}{deaths} (" . sprintf('%.2f', ($$i{global}{Turkey}{deaths}/$$i{global}{Turkey}{confirmed})*100) . "%) **R:** $$i{global}{Turkey}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_ir: **Iran**',
+                       'value'  => "**I:** $$i{global}{Iran}{confirmed} (**C:** " . ($$i{global}{Iran}{confirmed}-$$i{global}{Iran}{deaths}-$$i{global}{Iran}{recovered}) . ") **D:** $$i{global}{Iran}{deaths} (" . sprintf('%.2f', ($$i{global}{Iran}{deaths}/$$i{global}{Iran}{confirmed})*100) . "%) **R:** $$i{global}{Iran}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_br: **Brazil**',
+                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_ca: **Canada**',
+                       'value'  => "**I:** $$i{global}{Canada}{confirmed} (**C:** " . ($$i{global}{Canada}{confirmed}-$$i{global}{Canada}{deaths}-$$i{global}{Canada}{recovered}) . ") **D:** $$i{global}{Canada}{deaths} (" . sprintf('%.2f', ($$i{global}{Canada}{deaths}/$$i{global}{Canada}{confirmed})*100) . "%) **R:** $$i{global}{Canada}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_be: **Belgium**',
+                       'value'  => "**I:** $$i{global}{Belgium}{confirmed} (**C:** " . ($$i{global}{Belgium}{confirmed}-$$i{global}{Belgium}{deaths}-$$i{global}{Belgium}{recovered}) . ") **D:** $$i{global}{Belgium}{deaths} (" . sprintf('%.2f', ($$i{global}{Belgium}{deaths}/$$i{global}{Belgium}{confirmed})*100) . "%) **R:** $$i{global}{Belgium}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_pr: **Peru**',
+                       'value'  => "**I:** $$i{global}{Peru}{confirmed} (**C:** " . ($$i{global}{Peru}{confirmed}-$$i{global}{Peru}{deaths}-$$i{global}{Peru}{recovered}) . ") **D:** $$i{global}{Peru}{deaths} (" . sprintf('%.2f', ($$i{global}{Peru}{deaths}/$$i{global}{Peru}{confirmed})*100) . "%) **R:** $$i{global}{Peru}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_nl: **Netherlands**',
+                       'value'  => "**I:** $$i{global}{Netherlands}{confirmed} (**C:** " . ($$i{global}{Netherlands}{confirmed}-$$i{global}{Netherlands}{deaths}-$$i{global}{Netherlands}{recovered}) . ") **D:** $$i{global}{Netherlands}{deaths} (" . sprintf('%.2f', ($$i{global}{Netherlands}{deaths}/$$i{global}{Netherlands}{confirmed})*100) . "%) **R:** $$i{global}{Netherlands}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_in: **India**',
+                       'value'  => "**I:** $$i{global}{India}{confirmed} (**C:** " . ($$i{global}{India}{confirmed}-$$i{global}{India}{deaths}-$$i{global}{India}{recovered}) . ") **D:** $$i{global}{India}{deaths} (" . sprintf('%.2f', ($$i{global}{India}{deaths}/$$i{global}{India}{confirmed})*100) . "%) **R:** $$i{global}{India}{recovered}",
                        'inline' => \0,
                     },
                     ],
@@ -765,7 +766,7 @@ sub discord_on_message_create
             }
 
          }
-         elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && $channel ne $$config{'wufluchan'} )
+         elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && $channel !~ @{$$config{discord}{nocmdchans}} )
          {
             my @args = split(/ /, $1);
             my $year;
@@ -850,7 +851,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`No match`' );
             }
          }
-         elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ )
+         elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && $channel !~ @{$$config{discord}{nocmdchans}} )
          {
             my @x;
 
