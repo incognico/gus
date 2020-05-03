@@ -738,7 +738,7 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_pr: **Peru**',
+                       'name'   => ':flag_pe: **Peru**',
                        'value'  => "**I:** $$i{global}{Peru}{confirmed} (**C:** " . ($$i{global}{Peru}{confirmed}-$$i{global}{Peru}{deaths}-$$i{global}{Peru}{recovered}) . ") **D:** $$i{global}{Peru}{deaths} (" . sprintf('%.2f', ($$i{global}{Peru}{deaths}/$$i{global}{Peru}{confirmed})*100) . "%) **R:** $$i{global}{Peru}{recovered}",
                        'inline' => \0,
                     },
