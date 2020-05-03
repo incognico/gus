@@ -439,7 +439,7 @@ sub discord_on_message_create
             {
                my $diff = '';
                $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
-               my $dmsg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}/$$infos{$ap}{'info'}{'max'}**$diff";
+               my $dmsg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}**/$$infos{$ap}{'info'}{'max'}$diff";
 
                $discord->send_message( $channel, $dmsg );
             }
