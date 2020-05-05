@@ -286,10 +286,14 @@ sub discord_on_message_create
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
             $msg =~ s/\R/ /g;
-            $msg =~ s/<@!?(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g; # user/nick, ! is quote
+            if ($msg =~ s/<@!?(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g) # user/nick
+            {
+               # sensible quotes ingame
+               $msg =~ s/\@$self->{'users'}->{$1}->{'username'}/ << / if ($1 == $$config{discord}{client_id});
+            }
             $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
             $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
-            $msg =~ s/<(:.+:)\d+>/$1/g; # emoji
+            $msg =~ s/<a?(:.+:)\d+>/$1/g; # emoji
 
             return unless $msg;
 
