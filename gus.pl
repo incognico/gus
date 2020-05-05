@@ -44,7 +44,7 @@ $ua->timeout( 6 );
 my $self;
 
 my $config = {
-   game         => 'Sven Co-op @ twlz',
+   game         => 'Sven Co-op',
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
@@ -78,7 +78,6 @@ my $discord = Mojo::Discord->new(
    'logdir'    => "$ENV{HOME}/gus",
    'logfile'   => 'discord.log',
    'loglevel'  => 'info',
-   'rate_limits' => 0, # until Mojo::Discord is fixed
 );
 
 my $maps = {
@@ -165,7 +164,7 @@ open my $fh, '<', $$config{'fromsven'} or die;
 
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
-   interval => 0.25,
+   interval => 1.5,
 
    on_initial => sub {
       my ( $self ) = @_;
@@ -187,7 +186,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            $discord->status_update( { 'name' => "$data[1] @ twlz Sven Co-op", type => 0 } );
+            $discord->status_update( { 'name' => 'SC on ' . $data[1], type => 0 } );
 
             return if ( $data[2] eq '0' );
 
