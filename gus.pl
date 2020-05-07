@@ -184,7 +184,7 @@ my $filestream = IO::Async::FileStream->new(
          {
             say localtime(time) . " -> status: $line";
 
-            my @data = split( ' ', $line );
+            my @data = split( / /, $line );
 
             $discord->status_update( { 'name' => 'SC on ' . $data[1], type => 0 } );
 
@@ -234,6 +234,7 @@ my $filestream = IO::Async::FileStream->new(
             my $msg  = $4;
             my $r    = $gi->record_for_address($2);
 
+            $msg =~ s/(\s|\R)+/ /g;
             $msg =~ s/\@+everyone/everyone/g;
             $msg =~ s/\@+here/here/g;
 
@@ -285,12 +286,11 @@ sub discord_on_message_create
          {
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
-            $msg =~ s/\R/ /g;
-            if ($msg =~ s/<@!?(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g) # user/nick
+            if ( $msg =~ s/<@!?(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g ) # user/nick
             {
-               # sensible quotes ingame
-               $msg =~ s/\@$self->{'users'}->{$1}->{'username'}/ << / if ($1 == $$config{discord}{client_id});
+               $msg =~ s/(?:\R^)\@$self->{'users'}->{$1}->{'username'}/ >>> /m if ($1 == $self->{'id'});
             }
+            $msg =~ s/(?:\R|\s)+/ /g;
             $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
             $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
             $msg =~ s/<a?(:.+:)\d+>/$1/g; # emoji
