@@ -7,7 +7,7 @@
 #
 # Copyright 2017-2020, Nico R. Wohlgemuth <nico@lifeisabug.com>
 
-use v5.16.0;
+use v5.28.0;
 
 use utf8;
 use strict;
@@ -15,7 +15,8 @@ use warnings;
 
 use lib '/etc/perl';
 
-no warnings 'experimental::smartmatch';
+use feature 'signatures';
+no warnings qw(experimental::signatures experimental::smartmatch);
 
 binmode( STDOUT, ":encoding(UTF-8)" );
 
@@ -166,14 +167,13 @@ my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
    interval => 1.5,
 
-   on_initial => sub {
-      my ( $self ) = @_;
+   on_initial => sub ($self, $)
+   {
       $self->seek_to_last( "\n" );
    },
 
-   on_read => sub {
-      my ( $self, $buffref ) = @_;
-
+   on_read => sub ($self, $buffref, $)
+   {
       while ( $$buffref =~ s/^(.*\n)// )
       {
          my $line = decode_utf8_lax($1);
@@ -264,16 +264,15 @@ exit;
 
 sub discord_on_message_create
 {
-   $discord->gw->on('MESSAGE_CREATE' => sub
+   $discord->gw->on('MESSAGE_CREATE' => sub ($gw, $hash)
    {
-      my ($gw, $hash) = @_;
-
-      my $id = $hash->{'author'}->{'id'};
-      my $author = $hash->{'author'};
-      my $msg = $hash->{'content'};
-      my $msgid = $hash->{'id'};
-      my $channel = $hash->{'channel_id'};
-      my @mentions = @{$hash->{'mentions'}};
+      my $id       = $hash->{'author'}->{'id'};
+      my $author   = $hash->{'author'};
+      my $member   = $hash->{'member'};
+      my $msg      = $hash->{'content'};
+      my $msgid    = $hash->{'id'};
+      my $channel  = $hash->{'channel_id'};
+      my @mentions = $hash->{'mentions'}->@*;
 
       add_user($_) for(@mentions);
 
@@ -297,10 +296,13 @@ sub discord_on_message_create
 
             return unless $msg;
 
-            say localtime(time) . " <- <$$author{'username'}> $msg";
+            my $nick = defined $$member{'nick'} ? $$member{'nick'} : $$author{'username'};
+            $nick =~ s/%/%%/g;
+
+            say localtime(time) . " <- <$nick> $msg";
 
             open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'}) or die;
-            say $tosvenfh "(DISCORD) $$author{'username'}: $msg";
+            say $tosvenfh "(DISCORD) $nick: $msg";
             close $tosvenfh;
          }
          elsif ( $msg =~ /^!player (.+)/i )
@@ -396,15 +398,15 @@ sub discord_on_message_create
                {
                   if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
                   {
-                      push @{$$embed{'fields'}}, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
-                      push @{$$embed{'fields'}}, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
+                      push $$embed{'fields'}->@*, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
+                      push $$embed{'fields'}->@*, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
                   }
 
-                  push @{$$embed{'fields'}}, { 'name' => 'Location', 'value' => "[GMaps](https://www.google.com/maps/\@$r->[12],$r->[13],11z)", 'inline' => \1, };
+                  push $$embed{'fields'}->@*, { 'name' => 'Location', 'value' => "[GMaps](https://www.google.com/maps/\@$r->[12],$r->[13],11z)", 'inline' => \1, };
                }
 
-               push @{$$embed{'fields'}}, { 'name' => 'VAC Bans', 'value' => $$result2{'players'}->[0]{'NumberOfVACBans'} . ' (' . duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60) . ' ago)', 'inline' => \1, } if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 );
-               push @{$$embed{'fields'}}, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, } if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' );
+               push $$embed{'fields'}->@*, { 'name' => 'VAC Bans', 'value' => $$result2{'players'}->[0]{'NumberOfVACBans'} . ' (' . duration($$result2{'players'}->[0]{'DaysSinceLastBan'}*24*60*60) . ' ago)', 'inline' => \1, } if ( $$result2{'players'}->[0]{'NumberOfVACBans'} > 0 );
+               push $$embed{'fields'}->@*, { 'name' => 'Steam Community Banned', 'value' => 'Yes', 'inline' => \1, } if ( $$result2{'players'}->[0]{'CommunityBanned'} eq 'true' );
 
                my $message = {
                   'content' => '',
@@ -418,7 +420,7 @@ sub discord_on_message_create
                 $discord->send_message( $channel, "`No results`" );
             }
          }
-         elsif ( $msg =~ /^!stat(us|su)/i && $channel !~ @{$$config{discord}{nocmdchans}} )
+         elsif ( $msg =~ /^!stat(us|su)/i && $channel !~ $$config{discord}{nocmdchans}->@* )
          {
             my $if       = IO::Interface::Simple->new('lo');
             my $addr     = $if->address;
@@ -447,7 +449,7 @@ sub discord_on_message_create
                $discord->send_message( $channel, $dmsg );
             }
          }
-         elsif ( $msg =~ /^!w(?:eather)? (.+)/i && $channel !~ @{$$config{discord}{nocmdchans}} )
+         elsif ( $msg =~ /^!w(?:eather)? (.+)/i && $channel !~ $$config{discord}{nocmdchans}->@* )
          {
             my ($loc, $lat, $lon);
             my $alt = 0;
@@ -477,9 +479,9 @@ sub discord_on_message_create
             }
 
             my $flag = 'flag_white';
-            for ( @{$input->{address_components}} )
+            for ( $$input{address_components}->@* )
             {
-               $flag = 'flag_' . lc($_->{short_name}) if ( 'country' ~~ @{$_->{types}} );
+               $flag = 'flag_' . lc($_->{short_name}) if ( 'country' ~~ $$_{types}->@* );
             }
 
             my $fcloc;
@@ -574,7 +576,7 @@ sub discord_on_message_create
 
             if ( $type eq 'help' || !( $type ~~ @types ) )
             {
-               $discord->send_message( $channel, "`One of: @{types}`" );
+               $discord->send_message( $channel, "`One of: @types`" );
                return;
             }
 
@@ -652,7 +654,7 @@ sub discord_on_message_create
             {
                my ($confirmed, $deaths, $recovered, $updated) = (0, 0, 0, 0);
 
-               for ( keys %{$$i{global}} )
+               for ( keys $$i{global}->%* )
                {
                   $confirmed += $$i{global}{$_}{confirmed};
                   $deaths    += $$i{global}{$_}{deaths};
@@ -767,9 +769,8 @@ sub discord_on_message_create
             else {
                $discord->send_message( $channel,  '`Error fetching data`' );
             }
-
          }
-         elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && $channel !~ @{$$config{discord}{nocmdchans}} )
+         elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && ($channel !~ $$config{discord}{nocmdchans}->@*) )
          {
             my @args = split(/ /, $1);
             my $year;
@@ -836,11 +837,11 @@ sub discord_on_message_create
 
                $$embed{image} = { 'url' => $$omdb{Poster}, } unless ( $$omdb{Poster} eq 'N/A' );
 
-               push @{$$embed{'fields'}}, { 'name' => 'Actors',      'value' => $$omdb{Actors},                                    'inline' => \1, } unless ( $$omdb{Actors}     eq 'N/A' );
-               push @{$$embed{'fields'}}, { 'name' => 'Plot',        'value' => $$omdb{Plot},                                      'inline' => \0, } unless ( $$omdb{Plot}       eq 'N/A' );
-               push @{$$embed{'fields'}}, { 'name' => 'IMDB Rating', 'value' => "$$omdb{imdbRating}/10 ($$omdb{imdbVotes} votes)", 'inline' => \1, } unless ( $$omdb{imdbRating} eq 'N/A' );
-               push @{$$embed{'fields'}}, { 'name' => 'Metascore',   'value' => "$$omdb{Metascore}/100",                           'inline' => \1, } unless ( $$omdb{Metascore}  eq 'N/A' );
-               push @{$$embed{'fields'}}, { 'name' => 'Seasons',     'value' => $$omdb{totalSeasons},                              'inline' => \1, }     if ( $$omdb{Type}       eq 'series' );
+               push $$embed{'fields'}->@*, { 'name' => 'Actors',      'value' => $$omdb{Actors},                                    'inline' => \1, } unless ( $$omdb{Actors}     eq 'N/A' );
+               push $$embed{'fields'}->@*, { 'name' => 'Plot',        'value' => $$omdb{Plot},                                      'inline' => \0, } unless ( $$omdb{Plot}       eq 'N/A' );
+               push $$embed{'fields'}->@*, { 'name' => 'IMDB Rating', 'value' => "$$omdb{imdbRating}/10 ($$omdb{imdbVotes} votes)", 'inline' => \1, } unless ( $$omdb{imdbRating} eq 'N/A' );
+               push $$embed{'fields'}->@*, { 'name' => 'Metascore',   'value' => "$$omdb{Metascore}/100",                           'inline' => \1, } unless ( $$omdb{Metascore}  eq 'N/A' );
+               push $$embed{'fields'}->@*, { 'name' => 'Seasons',     'value' => $$omdb{totalSeasons},                              'inline' => \1, }     if ( $$omdb{Type}       eq 'series' );
 
                my $message = {
                   'content' => '',
@@ -854,7 +855,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`No match`' );
             }
          }
-         elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && $channel !~ @{$$config{discord}{nocmdchans}} )
+         elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && $channel !~ $$config{discord}{nocmdchans}->@* )
          {
             my @x;
 
@@ -871,11 +872,10 @@ sub discord_on_message_create
 }
 
 
-sub discord_on_ready
+sub discord_on_ready ()
 {
-   $discord->gw->on('READY' => sub
+   $discord->gw->on('READY' => sub ($gw, $hash)
    {
-      my ($gw, $hash) = @_;
       add_me($hash->{'user'});
       $discord->status_update( { 'name' => $$config{'game'}, type => 0 } ) if ( $$config{'game'} );
    });
@@ -883,37 +883,32 @@ sub discord_on_ready
    return;
 }
 
-sub add_me
+sub add_me ($user)
 {
-   my ($user) = @_;
    $self->{'id'} = $user->{'id'};
    add_user($user);
 
    return;
 }
 
-sub add_user
+sub add_user ($user)
 {
-   my ($user) = @_;
-   my $id = $user->{'id'};
-   $self->{'users'}{$id} = $user;
+   $self->{'users'}{$user->{'id'}} = $user;
 
    return;
 }
 
-sub add_guild
+sub add_guild ($guild)
 {
-   my ($guild) = @_;
-
    $self->{'guilds'}{$guild->{'id'}} = $guild;
 
-   foreach my $channel (@{$guild->{'channels'}})
+   foreach my $channel ($guild->{'channels'}->@*)
    {
       $self->{'channels'}{$channel->{'id'}} = $guild->{'id'};
       $self->{'channelnames'}{$channel->{'id'}} = $channel->{'name'}
    }
 
-   foreach my $role (@{$guild->{'roles'}})
+   foreach my $role ($guild->{'roles'}->@*)
    {
       $self->{'rolenames'}{$role->{'id'}} = $role->{'name'};
    }
@@ -921,10 +916,8 @@ sub add_guild
    return;
 }
 
-sub duration
+sub duration ($sec)
 {
-   my $sec = shift || return 0;
-
    my @gmt = gmtime($sec);
 
    $gmt[5] -= 70;
