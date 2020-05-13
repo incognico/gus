@@ -420,7 +420,7 @@ sub discord_on_message_create
                 $discord->send_message( $channel, "`No results`" );
             }
          }
-         elsif ( $msg =~ /^!stat(us|su)/i && $channel !~ $$config{discord}{nocmdchans}->@* )
+         elsif ( $msg =~ /^!stat(us|su)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my $if       = IO::Interface::Simple->new('lo');
             my $addr     = $if->address;
@@ -430,7 +430,7 @@ sub discord_on_message_create
 
             my $q = Net::SRCDS::Queries->new(
                encoding => $encoding,
-               timeout  => 1.5,
+               timeout  => 2,
             );
 
             $q->add_server( $addr, $port );
@@ -449,7 +449,7 @@ sub discord_on_message_create
                $discord->send_message( $channel, $dmsg );
             }
          }
-         elsif ( $msg =~ /^!w(?:eather)? (.+)/i && $channel !~ $$config{discord}{nocmdchans}->@* )
+         elsif ( $msg =~ /^!w(?:eather)? (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my ($loc, $lat, $lon);
             my $alt = 0;
@@ -770,7 +770,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
             }
          }
-         elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && ($channel !~ $$config{discord}{nocmdchans}->@*) )
+         elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my @args = split(/ /, $1);
             my $year;
@@ -855,7 +855,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`No match`' );
             }
          }
-         elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && $channel !~ $$config{discord}{nocmdchans}->@* )
+         elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my @x;
 
