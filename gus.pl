@@ -422,32 +422,34 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!stat(us|su)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
-            my $if       = IO::Interface::Simple->new('lo');
-            my $addr     = $if->address;
-            my $port     = $$config{'serverport'};
-            my $ap       = "$addr:$port";
-            my $encoding = term_encoding;
+            $discord->start_typing( $channel, sub {
+               my $if       = IO::Interface::Simple->new('lo');
+               my $addr     = $if->address;
+               my $port     = $$config{'serverport'};
+               my $ap       = "$addr:$port";
+               my $encoding = term_encoding;
 
-            my $q = Net::SRCDS::Queries->new(
-               encoding => $encoding,
-               timeout  => 2,
-            );
+               my $q = Net::SRCDS::Queries->new(
+                  encoding => $encoding,
+                  timeout  => 2,
+               );
 
-            $q->add_server( $addr, $port );
-            my $infos = $q->get_all;
+               $q->add_server( $addr, $port );
+               my $infos = $q->get_all;
 
-            unless ( defined $$infos{$ap}{'info'} )
-            {
-               $discord->send_message( $channel, "`Couldn't query server`" );
-            }
-            else
-            {
-               my $diff = '';
-               $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
-               my $dmsg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}**/$$infos{$ap}{'info'}{'max'}$diff";
+               unless ( defined $$infos{$ap}{'info'} )
+               {
+                  $discord->send_message( $channel, "`Couldn't query server`" );
+               }
+               else
+               {
+                  my $diff = '';
+                  $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
+                  my $dmsg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}**/$$infos{$ap}{'info'}{'max'}$diff";
 
-               $discord->send_message( $channel, $dmsg );
-            }
+                  $discord->send_message( $channel, $dmsg );
+               }
+            });
          }
          elsif ( $msg =~ /^!w(?:eather)? (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
