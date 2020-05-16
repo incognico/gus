@@ -28,7 +28,7 @@ use DBI;
 use DBD::SQLite::Constants ':file_open';
 use LWP::Simple qw($ua get);
 use LWP::UserAgent;
-use JSON;
+use JSON::MaybeXS;
 use Net::SRCDS::Queries;
 use IO::Interface::Simple;
 use Term::Encoding qw(term_encoding);
@@ -487,7 +487,7 @@ sub discord_on_message_create
             }
 
             my $fcloc;
-            eval { $fcloc = Weather::YR->new(lat => $lat, lon => $lon, msl => int($alt), tz => DateTime::TimeZone->new(name => 'Europe/Oslo'), lang => 'en') };
+            eval { $fcloc = Weather::YR->new(lat => $lat, lon => $lon, msl => int($alt), tz => DateTime::TimeZone->new(name => 'Europe/Berlin'), lang => 'en') };
 
             unless ($fcloc)
             {
@@ -590,7 +590,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
                return;
             }
-            my $i = from_json ( $r->decoded_content );
+            my $i = decode_json ( $r->decoded_content );
 
             if ( defined $$i{success} && $$i{success} )
             {
@@ -650,7 +650,7 @@ sub discord_on_message_create
                $discord->send_message( $channel,  '`Error fetching data`' );
                return;
             }
-            my $i = from_json ( $r->decoded_content );
+            my $i = decode_json ( $r->decoded_content );
 
             if ( defined $$i{global} )
             {
