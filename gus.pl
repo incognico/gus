@@ -278,11 +278,17 @@ my $timer = IO::Async::Timer::Periodic->new(
          if ( $_->{time} && $_->{time} <= time)
          {
             my $allowed = [ $_->{owner} ];
-            push($allowed->@*, $1) if ($_->{target} && $_->{target} =~ /^<@!?(\d+)>$/);
+
+            if ($_->{target} && $_->{target} =~ /^<@!?(\d+)>$/)
+            {
+               push($allowed->@*, $1) if ($1 != $_->{owner});
+            }
+
             my $message = {
                'content' => "$_->{target} $_->{text}",
                'allowed_mentions' => { users => $allowed },
             };
+
             $discord->send_message( $_->{chan}, $message );
 
             $storechanged = 1;
@@ -1005,7 +1011,7 @@ sub discord_on_message_create
                }
             }
          }
-         elsif ( $msg =~ /^!rem (total|list|delete) ?(.+)?/i && $channel == $$config{discord}{spamchan} && $id == $$config{discord}{owner_id} )
+         elsif ( $msg =~ /^!!rem (total|list|delete) ?(.+)?/i && $channel == $$config{discord}{spamchan} && $id == $$config{discord}{owner_id} )
          {
             if ($1 eq 'total')
             {
@@ -1013,7 +1019,7 @@ sub discord_on_message_create
             }
             elsif ($1 eq 'list')
             {
-               #$discord->send_message( $channel, "```perl\n" . Dumper($$store{reminders}) . '```' );
+               $discord->send_message( $channel, "```perl\n" . Dumper($$store{reminders}) . '```' );
                # TODO
             }
             elsif ($1 eq 'delete')
@@ -1021,7 +1027,7 @@ sub discord_on_message_create
                # TODO
             }
          }
-         elsif ( $msg =~ /^!?remind\s+(?:(?<target>\S+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<day>\d\d)\.(?<month>\d\d)\.(?<year>\d{4})\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:to\s+)?(?<text>.+)?)?$/i
+         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>\S+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<day>\d\d)\.(?<month>\d\d)\.(?<year>\d{4})\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:to\s+)?(?<text>.+)?)?$/i
          && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my $target = ( !defined $+{target} || fc($+{target}) eq fc('me') ) ? "<\@$id>" : $+{target};
