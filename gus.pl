@@ -279,10 +279,10 @@ my $timer = IO::Async::Timer::Periodic->new(
          {
             my $allowed = [ $_->{owner} ];
             push($allowed->@*, $1) if ($_->{target} && $_->{target} =~ /^<@!?(\d+)>$/);
-				my $message = {
-					'content' => "$_->{target} $_->{text}",
-					'allowed_mentions' => { users => $allowed },
-				};
+            my $message = {
+               'content' => "$_->{target} $_->{text}",
+               'allowed_mentions' => { users => $allowed },
+            };
             $discord->send_message( $_->{chan}, $message );
 
             $storechanged = 1;
@@ -1049,26 +1049,26 @@ sub discord_on_message_create
 
                $time = $dt->epoch;
 
-					unless ($time)
+               unless ($time)
                {
                   $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
-						return;
-					}
+                  return;
+               }
 
                if ($time < time)
                {
-						$time += 24*60*60;
-					}
+                  $time += 24*60*60;
+               }
 
                if ($time < time || $time > 7952342400)
                {
                   $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
-						return;
-					}
+                  return;
+               }
 
-					$delay = int((($time - time) / 60) + 0.5);
-				}
-				else
+               $delay = int((($time - time) / 60) + 0.5);
+            }
+            else
             {
                if ($delay)
                {
@@ -1079,7 +1079,7 @@ sub discord_on_message_create
                   $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
                   return;
                }
-				}
+            }
 
             #my $when = 'In: ' . DateTime->strftime('%d.%m.%Y %H:%M', $time) . (UTC);
 
@@ -1158,6 +1158,6 @@ sub duration ($sec)
 
 sub quit ($)
 {
-    store($store, $$config{store});
-    exit;
+   store($store, $$config{store});
+   exit;
 }
