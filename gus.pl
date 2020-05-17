@@ -20,29 +20,38 @@ no warnings qw(experimental::signatures experimental::smartmatch);
 
 binmode( STDOUT, ":encoding(UTF-8)" );
 
-#use Data::Dumper;
-use Mojo::Discord;
-use IO::Async::Loop::Mojo;
-use IO::Async::FileStream;
+$SIG{INT} = \&quit;
+
 use DBI;
 use DBD::SQLite::Constants ':file_open';
+use Data::Dumper;
+use DateTime;
+use DateTime::TimeZone;
+use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
+use Geo::Coder::Google;
+use IO::Async::FileStream;
+use IO::Async::Loop::Mojo;
+use IO::Async::Timer::Periodic;
+use IO::Interface::Simple;
+use JSON::MaybeXS;
 use LWP::Simple qw($ua get);
 use LWP::UserAgent;
-use JSON::MaybeXS;
-use Net::SRCDS::Queries;
-use IO::Interface::Simple;
-use Term::Encoding qw(term_encoding);
-use DateTime::TimeZone;
-use Geo::Coder::Google;
-use Weather::YR;
-use URI::Escape;
 use MaxMind::DB::Reader;
-use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
+use Mojo::Discord;
+use Net::SRCDS::Queries;
+use Path::This '$THISDIR';
+use Storable;
+use Term::Encoding qw(term_encoding);
+use URI::Escape;
+use Weather::YR;
+
+$Storable::canonical = 1;
 
 $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 6 );
 
 my $self;
+my ($store, $storechanged, $lastmap) = ({}, 0, '');
 
 my $config = {
    game         => 'Sven Co-op',
@@ -54,8 +63,9 @@ my $config = {
    steamapiurl2 => 'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=',
    serverport   => 27015,
    gmapikey     => '',
-   geo          => "$ENV{HOME}/gus/GeoLite2-City.mmdb",
-   omdbapikey   => '',
+   geo          => $THISDIR . '/GeoLite2-City.mmdb',
+   store        => $THISDIR . '/.store',
+   omdbapikey   => ,
 
    discord => {
       linkchan   => 458683388887302155,
@@ -63,6 +73,7 @@ my $config = {
       wufluchan  => 673626913864155187,
       nsfwchan   => 541343127550558228,
       ayayachan  => 459345843942588427,
+      spamchan   => 512991515744665600,
       nocmdchans => [706113584626663475, 610862900357234698, 673626913864155187, 698803767512006677],
       client_id  => ,
       owner_id   => 373912992758235148,
@@ -147,14 +158,15 @@ my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||__|\*|~|>)/;
 
 ###
 
-my $lastmap = '';
-
 my $gi = MaxMind::DB::Reader->new(file => $$config{'geo'});
 
 my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
    RaiseError => 1,
    sqlite_open_flags => SQLITE_OPEN_READONLY,
 });
+
+store($store, $$config{store}) unless (-f $$config{store});
+$store = retrieve($$config{'store'});
 
 discord_on_ready();
 discord_on_message_create();
@@ -252,8 +264,44 @@ my $filestream = IO::Async::FileStream->new(
    }
 );
 
+my $timer = IO::Async::Timer::Periodic->new(
+   interval => 15,
+   on_tick => sub ($) {
+      store($store, $$config{store}) if $storechanged;
+      $storechanged = 0;
+
+      return unless (defined $$store{reminders});
+
+      # TODO: verify that discord is actually connected
+
+      $$store{reminders}->@* = grep { defined } map {
+         if ( $_->{time} && $_->{time} <= time)
+         {
+            my $allowed = [ $_->{owner} ];
+            push($allowed->@*, $1) if ($_->{target} && $_->{target} =~ /^<@!?(\d+)>$/);
+				my $message = {
+					'content' => "$_->{target} $_->{text}",
+					'allowed_mentions' => { users => $allowed },
+				};
+            $discord->send_message( $_->{chan}, $message );
+
+            $storechanged = 1;
+            undef;
+         }
+         else
+         {
+            $_
+         }
+      } $$store{reminders}->@*;
+   },
+);
+$timer->start;
+
 my $loop = IO::Async::Loop::Mojo->new();
+
 $loop->add($filestream);
+$loop->add($timer);
+
 $loop->run unless (Mojo::IOLoop->is_running);
 
 close $fh;
@@ -317,6 +365,23 @@ sub discord_on_message_create
             {
                $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
                @bind = ( "$1" );
+            }
+            elsif ( $param =~ /<@!?(\d+)>/ )
+            {
+               my $request;
+
+               if ( defined $$store{users}{$1}{steamid} )
+               {
+                  $request = $1 if ( $$store{users}{$1}{steamid} =~ /^STEAM_(0:[01]:[0-9]+)$/ );
+               }
+               else
+               {
+                  $discord->send_message( $channel, 'The requested user must set his Steam ID by using `!store set steamid STEAM_0:X:XXXXXX` first' );
+                  return;
+               }
+
+               $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
+               @bind = ( "$request" );
             }
             else
             {
@@ -398,8 +463,8 @@ sub discord_on_message_create
                {
                   if ( defined $r->[16] && ( int($r->[4]) > 0 || $r->[6] > 0 ) )
                   {
-                      push $$embed{'fields'}->@*, { 'name' => 'Score', 'value' => int($r->[4]), 'inline' => \1, };
-                      push $$embed{'fields'}->@*, { 'name' => 'Deaths', 'value' => $r->[6], 'inline' => \1, };
+                      push $$embed{'fields'}->@*, { 'name' => 'Score',  'value' => int($r->[4]), 'inline' => \1, };
+                      push $$embed{'fields'}->@*, { 'name' => 'Deaths', 'value' => $r->[6],      'inline' => \1, };
                   }
 
                   push $$embed{'fields'}->@*, { 'name' => 'Location', 'value' => "[GMaps](https://www.google.com/maps/\@$r->[12],$r->[13],11z)", 'inline' => \1, };
@@ -417,7 +482,7 @@ sub discord_on_message_create
             }
             else
             {
-                $discord->send_message( $channel, "`No results`" );
+                $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
             }
          }
          elsif ( $msg =~ /^!stat(us|su)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -439,7 +504,7 @@ sub discord_on_message_create
 
                unless ( defined $$infos{$ap}{'info'} )
                {
-                  $discord->send_message( $channel, "`Couldn't query server`" );
+                  $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
                }
                else
                {
@@ -451,19 +516,37 @@ sub discord_on_message_create
                }
             });
          }
-         elsif ( $msg =~ /^!w(?:eather)? (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         elsif ( $msg =~ /^!w(?:eather)? ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
-            my ($loc, $lat, $lon);
-            my $alt = 0;
+            my ($alt, $loc, $lat, $lon) = (0);
+            my $request = $1;
+
+            if (defined $request)
+            {
+               $$store{users}{$id}{weather} = $request;
+               $storechanged = 1;
+            }
+            else
+            {
+               if (defined $$store{users}{$id}{weather})
+               {
+                  $request = $$store{users}{$id}{weather};
+               }
+               else
+               {
+                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+                  return;
+               }
+            }
 
             my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
 
             my $input;
-            eval { $input = $geo->geocode(location => "$1") };
+            eval { $input = $geo->geocode(location => "$request") };
 
             unless ( $input )
             {
-               $discord->send_message( $channel, '`No matching location`' );
+               $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
                return;
             }
 
@@ -491,7 +574,7 @@ sub discord_on_message_create
 
             unless ($fcloc)
             {
-               $discord->send_message( $channel, '`Error fetching weather data, try again later`' );
+               $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
                return;
             }
 
@@ -587,7 +670,7 @@ sub discord_on_message_create
             my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel,  '`Error fetching data`' );
+               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
                return;
             }
             my $i = decode_json ( $r->decoded_content );
@@ -598,7 +681,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->send_message( $channel,  '`Error fetching data`' );
+               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
             }
          }
          elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{nsfwchan} )
@@ -610,7 +693,7 @@ sub discord_on_message_create
             my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel,  '`Error fetching data`' );
+               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
                return;
             }
             my $ud = decode_json ( $r->decoded_content );
@@ -628,16 +711,16 @@ sub discord_on_message_create
                       last unless (defined $$ud{list}[$_+1]{definition});
                    }
 
-                   $discord->send_message( $channel, "```$res```" );
+                   $discord->send_message( $channel, "```asciidoc\n$res```" );
                }
                else
                {
-                  $discord->send_message( $channel, '`No match`' );
+                  $discord->create_reaction( $channel, $msgid, "\N{U+274C}" )
                }
             }
             else
             {
-               $discord->send_message( $channel, '`Error fetching data`' );
+               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
             }
          }
          elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{discord}{wufluchan} )
@@ -647,10 +730,10 @@ sub discord_on_message_create
             my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel,  '`Error fetching data`' );
+               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
                return;
             }
-            my $i = decode_json ( $r->decoded_content );
+            my $i = decode_json ( encode_utf8_lax($r->decoded_content) );
 
             if ( defined $$i{global} )
             {
@@ -695,8 +778,8 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_it: **Italy**',
-                       'value'  => "**I:** $$i{global}{Italy}{confirmed} (**C:** " . ($$i{global}{Italy}{confirmed}-$$i{global}{Italy}{deaths}-$$i{global}{Italy}{recovered}) . ") **D:** $$i{global}{Italy}{deaths} (" . sprintf('%.2f', ($$i{global}{Italy}{deaths}/$$i{global}{Italy}{confirmed})*100) . "%) **R:** $$i{global}{Italy}{recovered}",
+                       'name'   => ':flag_ru: **Russia**',
+                       'value'  => "**I:** $$i{global}{Russia}{confirmed} (**C:** " . ($$i{global}{Russia}{confirmed}-$$i{global}{Russia}{deaths}-$$i{global}{Russia}{recovered}) . ") **D:** $$i{global}{Russia}{deaths} (" . sprintf('%.2f', ($$i{global}{Russia}{deaths}/$$i{global}{Russia}{confirmed})*100) . "%) **R:** $$i{global}{Russia}{recovered}",
                        'inline' => \0,
                     },
                     {
@@ -705,18 +788,18 @@ sub discord_on_message_create
                        'inline' => \1,
                     },
                     {
+                       'name'   => ':flag_it: **Italy**',
+                       'value'  => "**I:** $$i{global}{Italy}{confirmed} (**C:** " . ($$i{global}{Italy}{confirmed}-$$i{global}{Italy}{deaths}-$$i{global}{Italy}{recovered}) . ") **D:** $$i{global}{Italy}{deaths} (" . sprintf('%.2f', ($$i{global}{Italy}{deaths}/$$i{global}{Italy}{confirmed})*100) . "%) **R:** $$i{global}{Italy}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_br: **Brazil**',
+                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
                        'name'   => ':flag_de: **Germany**',
                        'value'  => "**I:** $$i{global}{Germany}{confirmed} (**C:** " . ($$i{global}{Germany}{confirmed}-$$i{global}{Germany}{deaths}-$$i{global}{Germany}{recovered}) . ") **D:** $$i{global}{Germany}{deaths} (" . sprintf('%.2f', ($$i{global}{Germany}{deaths}/$$i{global}{Germany}{confirmed})*100) . "%) **R:** $$i{global}{Germany}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_ru: **Russia**',
-                       'value'  => "**I:** $$i{global}{Russia}{confirmed} (**C:** " . ($$i{global}{Russia}{confirmed}-$$i{global}{Russia}{deaths}-$$i{global}{Russia}{recovered}) . ") **D:** $$i{global}{Russia}{deaths} (" . sprintf('%.2f', ($$i{global}{Russia}{deaths}/$$i{global}{Russia}{confirmed})*100) . "%) **R:** $$i{global}{Russia}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_fr: **France**',
-                       'value'  => "**I:** $$i{global}{France}{confirmed} (**C:** " . ($$i{global}{France}{confirmed}-$$i{global}{France}{deaths}-$$i{global}{France}{recovered}) . ") **D:** $$i{global}{France}{deaths} (" . sprintf('%.2f', ($$i{global}{France}{deaths}/$$i{global}{France}{confirmed})*100) . "%) **R:** $$i{global}{France}{recovered}",
                        'inline' => \0,
                     },
                     {
@@ -725,13 +808,23 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
+                       'name'   => ':flag_fr: **France**',
+                       'value'  => "**I:** $$i{global}{France}{confirmed} (**C:** " . ($$i{global}{France}{confirmed}-$$i{global}{France}{deaths}-$$i{global}{France}{recovered}) . ") **D:** $$i{global}{France}{deaths} (" . sprintf('%.2f', ($$i{global}{France}{deaths}/$$i{global}{France}{confirmed})*100) . "%) **R:** $$i{global}{France}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
                        'name'   => ':flag_ir: **Iran**',
                        'value'  => "**I:** $$i{global}{Iran}{confirmed} (**C:** " . ($$i{global}{Iran}{confirmed}-$$i{global}{Iran}{deaths}-$$i{global}{Iran}{recovered}) . ") **D:** $$i{global}{Iran}{deaths} (" . sprintf('%.2f', ($$i{global}{Iran}{deaths}/$$i{global}{Iran}{confirmed})*100) . "%) **R:** $$i{global}{Iran}{recovered}",
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_br: **Brazil**',
-                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'name'   => ':flag_in: **India**',
+                       'value'  => "**I:** $$i{global}{India}{confirmed} (**C:** " . ($$i{global}{India}{confirmed}-$$i{global}{India}{deaths}-$$i{global}{India}{recovered}) . ") **D:** $$i{global}{India}{deaths} (" . sprintf('%.2f', ($$i{global}{India}{deaths}/$$i{global}{India}{confirmed})*100) . "%) **R:** $$i{global}{India}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
+                       'name'   => ':flag_pe: **Peru**',
+                       'value'  => "**I:** $$i{global}{Peru}{confirmed} (**C:** " . ($$i{global}{Peru}{confirmed}-$$i{global}{Peru}{deaths}-$$i{global}{Peru}{recovered}) . ") **D:** $$i{global}{Peru}{deaths} (" . sprintf('%.2f', ($$i{global}{Peru}{deaths}/$$i{global}{Peru}{confirmed})*100) . "%) **R:** $$i{global}{Peru}{recovered}",
                        'inline' => \0,
                     },
                     {
@@ -745,18 +838,8 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_pe: **Peru**',
-                       'value'  => "**I:** $$i{global}{Peru}{confirmed} (**C:** " . ($$i{global}{Peru}{confirmed}-$$i{global}{Peru}{deaths}-$$i{global}{Peru}{recovered}) . ") **D:** $$i{global}{Peru}{deaths} (" . sprintf('%.2f', ($$i{global}{Peru}{deaths}/$$i{global}{Peru}{confirmed})*100) . "%) **R:** $$i{global}{Peru}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_nl: **Netherlands**',
-                       'value'  => "**I:** $$i{global}{Netherlands}{confirmed} (**C:** " . ($$i{global}{Netherlands}{confirmed}-$$i{global}{Netherlands}{deaths}-$$i{global}{Netherlands}{recovered}) . ") **D:** $$i{global}{Netherlands}{deaths} (" . sprintf('%.2f', ($$i{global}{Netherlands}{deaths}/$$i{global}{Netherlands}{confirmed})*100) . "%) **R:** $$i{global}{Netherlands}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_in: **India**',
-                       'value'  => "**I:** $$i{global}{India}{confirmed} (**C:** " . ($$i{global}{India}{confirmed}-$$i{global}{India}{deaths}-$$i{global}{India}{recovered}) . ") **D:** $$i{global}{India}{deaths} (" . sprintf('%.2f', ($$i{global}{India}{deaths}/$$i{global}{India}{confirmed})*100) . "%) **R:** $$i{global}{India}{recovered}",
+                       'name'   => ':flag_sa: **Saudi Arabia**',
+                       'value'  => "**I:** $$i{global}{'Saudi Arabia'}{confirmed} (**C:** " . ($$i{global}{'Saudi Arabia'}{confirmed}-$$i{global}{'Saudi Arabia'}{deaths}-$$i{global}{'Saudi Arabia'}{recovered}) . ") **D:** $$i{global}{'Saudi Arabia'}{deaths} (" . sprintf('%.2f', ($$i{global}{'Saudi Arabia'}{deaths}/$$i{global}{'Saudi Arabia'}{confirmed})*100) . "%) **R:** $$i{global}{'Saudi Arabia'}{recovered}",
                        'inline' => \0,
                     },
                     ],
@@ -769,7 +852,7 @@ sub discord_on_message_create
                $discord->send_message( $channel, $message );
             }
             else {
-               $discord->send_message( $channel,  '`Error fetching data`' );
+               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
             }
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -791,7 +874,7 @@ sub discord_on_message_create
             my $r = $ua->get( $url, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel,  '`Error fetching data`' );
+               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
                return;
             }
             my $omdb = decode_json ( $r->decoded_content );
@@ -854,7 +937,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->send_message( $channel,  '`No match`' );
+               $discord->create_reaction( $channel, $msgid, "\N{U+274C}" )
             }
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -867,12 +950,156 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, join '', @x );
          }
+         elsif ( $msg =~ /^!store (set|get) (tz|steamid|weather) ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         {
+            my $action = $1;
+            my $type   = $2;
+            my $value  = $3;
+
+            if ($action eq 'set')
+            {
+               return unless (defined $value);
+
+               if ($type eq 'tz')
+               {
+                  if ( DateTime::TimeZone->is_valid_name($value) )
+                  {
+                     $$store{users}{$id}{$type} = $value;
+                     $storechanged = 1;
+                     $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+                  }
+                  else
+                  {
+                     $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                  }
+               }
+               elsif ($type eq 'steamid')
+               {
+                  if ( $value =~ /STEAM_(0:[01]:[0-9]+)/n )
+                  {
+                     $$store{users}{$id}{$type} = $value;
+                     $storechanged = 1;
+                     $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+                  }
+                  else
+                  {
+                     $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                  }
+               }
+               else
+               {
+                  $$store{users}{$id}{$type} = $value;
+                  $storechanged = 1;
+                  $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+               }
+            }
+            elsif ($action eq 'get')
+            {
+               if (defined $$store{users}{$id}{$type})
+               {
+                  $discord->send_message( $channel, "<\@$id> `$type: $$store{users}{$id}{$type}`" );
+               }
+               else
+               {
+                  $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+               }
+            }
+         }
+         elsif ( $msg =~ /^!rem (total|list|delete) ?(.+)?/i && $channel == $$config{discord}{spamchan} && $id == $$config{discord}{owner_id} )
+         {
+            if ($1 eq 'total')
+            {
+               $discord->send_message( $channel, '`' . scalar($$store{reminders}->@*) . '`' );
+            }
+            elsif ($1 eq 'list')
+            {
+               #$discord->send_message( $channel, "```perl\n" . Dumper($$store{reminders}) . '```' );
+               # TODO
+            }
+            elsif ($1 eq 'delete')
+            {
+               # TODO
+            }
+         }
+         elsif ( $msg =~ /^!?remind\s+(?:(?<target>\S+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<day>\d\d)\.(?<month>\d\d)\.(?<year>\d{4})\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:to\s+)?(?<text>.+)?)?$/i
+         && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         {
+            my $target = ( !defined $+{target} || fc($+{target}) eq fc('me') ) ? "<\@$id>" : $+{target};
+            my $delay  = $+{mins};
+            my $text   = defined $+{text} ? $+{text} : "\N{U+23F0}";
+
+            my $time;
+
+            unless (defined $delay)
+            {
+               unless (exists $$store{users}{$id}{tz})
+               {
+                  $discord->send_message( $channel, "<\@$id> Set your local timezone (https://u.nu/7skv0) with `!store set tz Time/Zone` first (case-sensitive)" );
+                  return;
+               }
+
+               my ($h, $m) = split(/:/, $+{hm}, 2);
+
+               my $dt = DateTime->now( time_zone => $$store{users}{$id}{tz} );
+               $dt->set( year   => $+{year}  ) if $+{year};
+               $dt->set( month  => $+{month} ) if $+{month};
+               $dt->set( day    => $+{day}   ) if $+{day};
+               $dt->set( hour   => $h        ) if $h;
+               $dt->set( minute => $m        ) if $m;
+
+               $time = $dt->epoch;
+
+					unless ($time)
+               {
+                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+						return;
+					}
+
+               if ($time < time)
+               {
+						$time += 24*60*60;
+					}
+
+               if ($time < time || $time > 7952342400)
+               {
+                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+						return;
+					}
+
+					$delay = int((($time - time) / 60) + 0.5);
+				}
+				else
+            {
+               if ($delay)
+               {
+                  $time = time + ($delay) * 60;
+               }
+               else
+               {
+                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+                  return;
+               }
+				}
+
+            #my $when = 'In: ' . DateTime->strftime('%d.%m.%Y %H:%M', $time) . (UTC);
+
+            push( $$store{reminders}->@*, {
+               chan   => $channel,
+               owner  => $id,
+               target => $target,
+               text   => $text,
+               added  => time,
+               time   => $time,
+            });
+
+            $discord->create_reaction( $channel, $msgid, "\N{U+2705}" ); 
+            #$discord->send_message( $channel, '`In: '. duration($delay * 60) . '`' ) if $delay;
+         }
       }
    });
 
    return;
 }
-
 
 sub discord_on_ready ()
 {
@@ -927,4 +1154,10 @@ sub duration ($sec)
             ($gmt[7] ? ($gmt[5]                                  ? ' ' : '').$gmt[7].'d' : '').
             ($gmt[2] ? ($gmt[5] || $gmt[7]                       ? ' ' : '').$gmt[2].'h' : '').
             ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2]            ? ' ' : '').$gmt[1].'m' : '');
+}
+
+sub quit ($)
+{
+    store($store, $$config{store});
+    exit;
 }
