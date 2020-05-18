@@ -51,7 +51,7 @@ $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 6 );
 
 my $self;
-my ($store, $storechanged, $lastmap) = ({}, 0, '');
+my ($store, $storechanged, $lastmap, $steamidmap) = ({}, 0, '', {});
 
 my $config = {
    game         => 'Sven Co-op',
@@ -168,6 +168,11 @@ my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
 store($store, $$config{store}) unless (-f $$config{store});
 $store = retrieve($$config{'store'});
 
+for (keys $$store{users}->%*)
+{
+   $$steamidmap{$$store{users}{$_}{steamid}} = "<\@$_>" if (exists $$store{users}{$_}{steamid});
+}
+
 discord_on_ready();
 discord_on_message_create();
 
@@ -239,12 +244,13 @@ my $filestream = IO::Async::FileStream->new(
          }
          else
          {
+            $line =~ /<(.+?)><(.+?):.+?><(.+?)> (.+)/;
             say localtime(time) . " -> $line";
 
-            $line =~ /<(.+?)><(.+?):.+?><(.+?)> (.+)/;
-            my $nick = $1;
-            my $msg  = $4;
-            my $r    = $gi->record_for_address($2);
+            my $nick    = $1;
+            my $r       = $gi->record_for_address($2);
+            my $steamid = $3;
+            my $msg     = $4;
 
             $msg =~ s/(\s|\R)+/ /g;
             $msg =~ s/\@+everyone/everyone/g;
@@ -253,11 +259,18 @@ my $filestream = IO::Async::FileStream->new(
             $nick =~ s/`//g;
             $msg  =~ s/$discord_markdown_pattern/\\$1/g;
 
-            my $final = "`$nick`  $msg";
+            my $final = exists $$steamidmap{$steamid} ? "$$steamidmap{$steamid} `$nick`" : "`$nick`";
+            $final   .= "  $msg";
+
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
-            $discord->send_message( $$config{discord}{linkchan}, ':flag_' . ($r->{country}{iso_code} ? lc($r->{country}{iso_code}) : 'white') . ': ' . $final );
+            my $message = {
+               content => ':flag_' . ($r->{country}{iso_code} ? lc($r->{country}{iso_code}) : 'white') . ': ' . $final,
+               allowed_mentions => { parse => [] },
+            };
+
+            $discord->send_message( $$config{discord}{linkchan}, $message );
          }
       }
       return 0;
@@ -281,7 +294,11 @@ my $timer = IO::Async::Timer::Periodic->new(
 
             if ($_->{target} && $_->{target} =~ /^<@!?(\d+)>$/)
             {
-               push($allowed->@*, $1) if ($1 != $_->{owner});
+               if ($1 != $_->{owner})
+               {
+                  push($allowed->@*, $1);
+                  $_->{text} .= " (reminded by <\@$_->{owner}>)";
+               }
             }
 
             my $message = {
@@ -292,7 +309,7 @@ my $timer = IO::Async::Timer::Periodic->new(
             $discord->send_message( $_->{chan}, $message );
 
             $storechanged = 1;
-            undef;
+            undef $_;
          }
          else
          {
@@ -524,55 +541,62 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!w(?:eather)? ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
-            my ($alt, $loc, $lat, $lon) = (0);
-            my $request = $1;
+            my ($alt, $flg, $loc, $lat, $lon) = (0, 'white');
 
-            if (defined $request)
-            {
-               $$store{users}{$id}{weather} = $request;
-               $storechanged = 1;
-            }
-            else
+            unless (defined $1)
             {
                if (defined $$store{users}{$id}{weather})
                {
-                  $request = $$store{users}{$id}{weather};
+                  $loc = $$store{users}{$id}{weather};
+                  $lat = $$store{users}{$id}{weather_priv}{lat};
+                  $lon = $$store{users}{$id}{weather_priv}{lon};
+                  $alt = $$store{users}{$id}{weather_priv}{alt};
+                  $flg = $$store{users}{$id}{weather_priv}{flg};
                }
                else
                {
-                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+                  $discord->create_reaction( $channel, $msgid, ':eh:458679128556568586' );
                   return;
                }
             }
-
-            my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
-
-            my $input;
-            eval { $input = $geo->geocode(location => "$request") };
-
-            unless ( $input )
+            else
             {
-               $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
-               return;
-            }
+               my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
 
-            $loc = $input->{formatted_address};
-            $lat = $input->{geometry}{location}{lat};
-            $lon = $input->{geometry}{location}{lng};
+               my $input;
+               eval { $input = $geo->geocode(location => $1) };
 
-            my $json = get( "https://maps.googleapis.com/maps/api/elevation/json?key=$$config{'gmapikey'}&locations=" . $lat . ',' . $lon );
+               unless ( $input )
+               {
+                  $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                  return;
+               }
 
-            if ($json)
-            {
-               my $elevdata;
-               eval { $elevdata = decode_json($json) };
-               $alt = $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
-            }
+               $loc = $input->{formatted_address};
+               $lat = $input->{geometry}{location}{lat};
+               $lon = $input->{geometry}{location}{lng};
 
-            my $flag = 'flag_white';
-            for ( $$input{address_components}->@* )
-            {
-               $flag = 'flag_' . lc($_->{short_name}) if ( 'country' ~~ $$_{types}->@* );
+               for ($$input{address_components}->@*)
+               {
+                  $flg = lc($_->{short_name}) if ('country' ~~ $$_{types}->@*);
+               }
+
+               my $json = get( "https://maps.googleapis.com/maps/api/elevation/json?key=$$config{'gmapikey'}&locations=" . $lat . ',' . $lon );
+
+               if ($json)
+               {
+                  my $elevdata;
+                  eval { $elevdata = decode_json($json) };
+                  $alt = $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
+               }
+
+               $$store{users}{$id}{weather}           = $loc;
+               $$store{users}{$id}{weather_priv}{lat} = $lat;
+               $$store{users}{$id}{weather_priv}{lon} = $lon;
+               $$store{users}{$id}{weather_priv}{alt} = $alt;
+               $$store{users}{$id}{weather_priv}{flg} = $flg;
+
+               $storechanged = 1;
             }
 
             my $fcloc;
@@ -612,7 +636,7 @@ sub discord_on_message_create
                 },
                 'fields' => [
                 {
-                   'name'   => ( $flag eq 'flag_se' ? ':gay_pride_flag:' : ":$flag:" ) . ' Weather for:',
+                   'name'   => ":flag_$flg:" . ' Weather for:',
                    'value'  => "**[$loc](https://www.google.com/maps/\@$lat,$lon,13z)**",
                    'inline' => \0,
                  },
@@ -676,7 +700,7 @@ sub discord_on_message_create
             my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
+               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
                return;
             }
             my $i = decode_json ( $r->decoded_content );
@@ -687,7 +711,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
+               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
             }
          }
          elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{nsfwchan} )
@@ -699,7 +723,7 @@ sub discord_on_message_create
             my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
+               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
                return;
             }
             my $ud = decode_json ( $r->decoded_content );
@@ -726,7 +750,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
+               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
             }
          }
          elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{discord}{wufluchan} )
@@ -736,7 +760,7 @@ sub discord_on_message_create
             my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
+               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
                return;
             }
             my $i = decode_json ( encode_utf8_lax($r->decoded_content) );
@@ -779,13 +803,13 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_es: **Spain**',
-                       'value'  => "**I:** $$i{global}{Spain}{confirmed} (**C:** " . ($$i{global}{Spain}{confirmed}-$$i{global}{Spain}{deaths}-$$i{global}{Spain}{recovered}) . ") **D:** $$i{global}{Spain}{deaths} (" . sprintf('%.2f', ($$i{global}{Spain}{deaths}/$$i{global}{Spain}{confirmed})*100) . "%) **R:** $$i{global}{Spain}{recovered}",
+                       'name'   => ':flag_ru: **Russia**',
+                       'value'  => "**I:** $$i{global}{Russia}{confirmed} (**C:** " . ($$i{global}{Russia}{confirmed}-$$i{global}{Russia}{deaths}-$$i{global}{Russia}{recovered}) . ") **D:** $$i{global}{Russia}{deaths} (" . sprintf('%.2f', ($$i{global}{Russia}{deaths}/$$i{global}{Russia}{confirmed})*100) . "%) **R:** $$i{global}{Russia}{recovered}",
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_ru: **Russia**',
-                       'value'  => "**I:** $$i{global}{Russia}{confirmed} (**C:** " . ($$i{global}{Russia}{confirmed}-$$i{global}{Russia}{deaths}-$$i{global}{Russia}{recovered}) . ") **D:** $$i{global}{Russia}{deaths} (" . sprintf('%.2f', ($$i{global}{Russia}{deaths}/$$i{global}{Russia}{confirmed})*100) . "%) **R:** $$i{global}{Russia}{recovered}",
+                       'name'   => ':flag_es: **Spain**',
+                       'value'  => "**I:** $$i{global}{Spain}{confirmed} (**C:** " . ($$i{global}{Spain}{confirmed}-$$i{global}{Spain}{deaths}-$$i{global}{Spain}{recovered}) . ") **D:** $$i{global}{Spain}{deaths} (" . sprintf('%.2f', ($$i{global}{Spain}{deaths}/$$i{global}{Spain}{confirmed})*100) . "%) **R:** $$i{global}{Spain}{recovered}",
                        'inline' => \0,
                     },
                     {
@@ -794,13 +818,13 @@ sub discord_on_message_create
                        'inline' => \1,
                     },
                     {
-                       'name'   => ':flag_it: **Italy**',
-                       'value'  => "**I:** $$i{global}{Italy}{confirmed} (**C:** " . ($$i{global}{Italy}{confirmed}-$$i{global}{Italy}{deaths}-$$i{global}{Italy}{recovered}) . ") **D:** $$i{global}{Italy}{deaths} (" . sprintf('%.2f', ($$i{global}{Italy}{deaths}/$$i{global}{Italy}{confirmed})*100) . "%) **R:** $$i{global}{Italy}{recovered}",
+                       'name'   => ':flag_br: **Brazil**',
+                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_br: **Brazil**',
-                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'name'   => ':flag_it: **Italy**',
+                       'value'  => "**I:** $$i{global}{Italy}{confirmed} (**C:** " . ($$i{global}{Italy}{confirmed}-$$i{global}{Italy}{deaths}-$$i{global}{Italy}{recovered}) . ") **D:** $$i{global}{Italy}{deaths} (" . sprintf('%.2f', ($$i{global}{Italy}{deaths}/$$i{global}{Italy}{confirmed})*100) . "%) **R:** $$i{global}{Italy}{recovered}",
                        'inline' => \0,
                     },
                     {
@@ -858,7 +882,7 @@ sub discord_on_message_create
                $discord->send_message( $channel, $message );
             }
             else {
-               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
+               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
             }
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -880,7 +904,7 @@ sub discord_on_message_create
             my $r = $ua->get( $url, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->send_message( $channel, '<:PepeHands:557286043548778499>' );
+               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
                return;
             }
             my $omdb = decode_json ( $r->decoded_content );
@@ -956,7 +980,7 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, join '', @x );
          }
-         elsif ( $msg =~ /^!store (set|get) (tz|steamid|weather) ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         elsif ( $msg =~ /^!store (set|get) (tz|steamid) ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my $action = $1;
             my $type   = $2;
@@ -981,9 +1005,11 @@ sub discord_on_message_create
                }
                elsif ($type eq 'steamid')
                {
-                  if ( $value =~ /STEAM_(0:[01]:[0-9]+)/n )
+                  if ( $value =~ /STEAM_([01]:[01]:[0-9]+)/n )
                   {
+                     $value =~ s/STEAM_1:/STEAM_0:/;
                      $$store{users}{$id}{$type} = $value;
+                     $$steamidmap{$value} = "<\@$id>";
                      $storechanged = 1;
                      $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
                   }
@@ -1011,24 +1037,66 @@ sub discord_on_message_create
                }
             }
          }
-         elsif ( $msg =~ /^!!rem (total|list|delete) ?(.+)?/i && $channel == $$config{discord}{spamchan} && $id == $$config{discord}{owner_id} )
+         elsif ( $msg =~ /^\.rem (total|list|delete) ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) && $id == $$config{discord}{owner_id} )
          {
+            unless (defined $$store{reminders})
+            {
+               $discord->send_message( $channel, '`0 reminders`' );
+               return;
+            }
+
             if ($1 eq 'total')
             {
                $discord->send_message( $channel, '`' . scalar($$store{reminders}->@*) . '`' );
             }
             elsif ($1 eq 'list')
             {
-               $discord->send_message( $channel, "```perl\n" . Dumper($$store{reminders}) . '```' );
-               # TODO
+               my $text = "id :: chan :: owner :: target :: text :: at (utc) :: in\n";
+               $text   .= "===================================\n";
+
+               for ($$store{reminders}->@*)
+               {
+                  next unless (defined $_);
+
+                  $text .= "$_->{id} :: <#$_->{chan}> :: <\@$_->{owner}> :: " . ($_->{target} =~ /<\@!?$_->{owner}>/ ? 'owner' : $_->{target})
+                        . " :: $_->{text} :: " . DateTime->from_epoch(epoch => $_->{time})->strftime('%F %R') . ' :: '
+                        . duration(int(($_->{time} - time) + 60)) . "\n";
+               }
+
+               while ($text =~ /\G(.{0,1990}(?:.\z|\R))/sg)
+               {
+                  my $message = {
+                     'content' => $1,
+                     'allowed_mentions' => { parse => [] },
+                  };
+
+                  $discord->send_message( $channel, $message );
+               }
             }
             elsif ($1 eq 'delete')
             {
-               # TODO
+               if ($2 && $2 =~ /id #?(\d+)/i)
+               {
+                  $$store{reminders}->@* = grep { defined } map {
+                     if ($1 == $_->{id})
+                     {
+                        $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+
+                        $storechanged = 1;
+                        undef $_;
+                     }
+                     else
+                     {
+                        $_
+                     }
+                  } $$store{reminders}->@*;
+               }
             }
          }
-         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>\S+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<day>\d\d)\.(?<month>\d\d)\.(?<year>\d{4})\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:to\s+)?(?<text>.+)?)?$/i
-         && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>\S+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<day>\d\d)\.(?<month>\d\d)\.(?<year>\d{4})\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:to\s+)?(?<text>.+)?)?$/i )
+         # TODO: make d m y optional
+         # TODO: fix "rem 18.13.2020 20:00 a" matching duration
+         # TODO: random time 3h-3d when "remind me to ..."?
          {
             my $target = ( !defined $+{target} || fc($+{target}) eq fc('me') ) ? "<\@$id>" : $+{target};
             my $delay  = $+{mins};
@@ -1040,39 +1108,30 @@ sub discord_on_message_create
             {
                unless (exists $$store{users}{$id}{tz})
                {
-                  $discord->send_message( $channel, "<\@$id> Set your local timezone (https://u.nu/7skv0) with `!store set tz Time/Zone` first (case-sensitive)" );
+                  $discord->send_message( $channel, "<\@$id> Set your local timezone (https://u.nu/7skv0) with `!store set tz <Time/Zone>` first (case-sensitive!) E.g. `!store set tz Asia/Omsk`" );
                   return;
                }
 
                my ($h, $m) = split(/:/, $+{hm}, 2);
 
                my $dt = DateTime->now( time_zone => $$store{users}{$id}{tz} );
-               $dt->set( year   => $+{year}  ) if $+{year};
-               $dt->set( month  => $+{month} ) if $+{month};
-               $dt->set( day    => $+{day}   ) if $+{day};
-               $dt->set( hour   => $h        ) if $h;
-               $dt->set( minute => $m        ) if $m;
+               eval
+               {
+                  $dt->set( year   => $+{year}  ) if $+{year};
+                  $dt->set( month  => $+{month} ) if $+{month};
+                  $dt->set( day    => $+{day}   ) if $+{day};
+                  $dt->set( hour   => $h        ) if $h;
+                  $dt->set( minute => $m        ) if $m;
+                  $time = $dt->epoch;
+               };
 
-               $time = $dt->epoch;
-
-               unless ($time)
+               if ($@ || !$time || ($text && length($text) > 512))
                {
                   $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
                   return;
                }
 
-               if ($time < time)
-               {
-                  $time += 24*60*60;
-               }
-
-               if ($time < time || $time > 7952342400)
-               {
-                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
-                  return;
-               }
-
-               $delay = int((($time - time) / 60) + 0.5);
+               $time += 24*60*60 if ($time < time);
             }
             else
             {
@@ -1087,9 +1146,16 @@ sub discord_on_message_create
                }
             }
 
-            #my $when = 'In: ' . DateTime->strftime('%d.%m.%Y %H:%M', $time) . (UTC);
+            if ($time < time || $time > 7952342400)
+            {
+               $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+               return;
+            }
+
+            $text =~ s'https?://''gmi;
 
             push( $$store{reminders}->@*, {
+               id     => $$store{reminder_count}++,
                chan   => $channel,
                owner  => $id,
                target => $target,
@@ -1099,7 +1165,7 @@ sub discord_on_message_create
             });
 
             $discord->create_reaction( $channel, $msgid, "\N{U+2705}" ); 
-            #$discord->send_message( $channel, '`In: '. duration($delay * 60) . '`' ) if $delay;
+            #$discord->send_message( $channel, '`In: '. duration($time - time) . '`' );
          }
       }
    });
