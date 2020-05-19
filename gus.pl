@@ -291,7 +291,7 @@ my $timer = IO::Async::Timer::Periodic->new(
 
       for (keys $$store{steamidqueue}->%*)
       {
-         delete $$store{steamidqueue}{$_} if (exists $$store{steamidqueue}{$_}{ts} && $$store{steamidqueue}{$_}{ts} > (time + 3600));
+         delete $$store{steamidqueue}{$_} if (exists $$store{steamidqueue}{$_}{ts} && ($$store{steamidqueue}{$_}{ts} + 3600) < time);
          $storechanged = 1;
       }
 
