@@ -89,7 +89,7 @@ my $discord = Mojo::Discord->new(
    'verbose'   => 0,
    'logdir'    => "$ENV{HOME}/gus",
    'logfile'   => 'discord.log',
-   'loglevel'  => 'info',
+   'loglevel'  => 'debug',
 );
 
 my $maps = {
@@ -117,15 +117,15 @@ my $maps = {
    'po_c1m1'              => ':regional_indicator_p: Poke 646',
    'projectg1'            => ':dromedary_camel: Project: Guilty',
    'pv_c1m1'              => ':regional_indicator_v: Poke 646: Vendetta',
-   'quad_f'               => '<:piginablanket:542462830163656764> Quad',
-   'ra_quad'              => '<:piginablanket:542462830163656764> Real Adrenaline Quad',
+   'quad_f'               => '<:blanketwrap:712012386743222313> Quad',
+   'ra_quad'              => '<:blanketwrap:712012386743222313> Real Adrenaline Quad',
    'ressya_no_tabi'       => ':train2::camera_with_flash: Ressya No Tabi',
    'restriction01'        => ':radioactive: Restriction',
    'road_to_shinnen'      => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
    'rust_islands_b9'      => '<:eecat:460442390457483274> R U S T',
    'rust_legacy_b9'       => '<:eecat:460442390457483274> (legacy) R U S T',
    'rust_mini_b9'         => '<:eecat:460442390457483274> (mini) R U S T',
-   'sa13'                 => '<:Kannasuicide:603609334080995338> SA13',
+   'sa13'                 => '<:KannaSuicide:603609334080995338> SA13',
    'sc_royals1'           => ':eye: Royals',
    'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
    'th_ep1_01'            => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
@@ -133,7 +133,7 @@ my $maps = {
    'th_ep3_00'            => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape'            => '<:KannaSpook:603856338132664321> They Hunger: Escape',
    'the_daikon_warfare1'  => ':seedling: The Daikon Warfare',
-   'tunnelvision_1'       => '<:zooming:640195746444083200> Tunnel Vision',
+   'tunnelvision_1'       => '<:KannaZoooming:662976056956813353> Tunnel Vision',
    'uboa'                 => ':rice_ball: UBOA',
 };
 
@@ -259,7 +259,13 @@ my $filestream = IO::Async::FileStream->new(
             $nick =~ s/`//g;
             $msg  =~ s/$discord_markdown_pattern/\\$1/g;
 
-            my $final = exists $$steamidmap{$steamid} ? "$$steamidmap{$steamid} `$nick`" : "`$nick`";
+            if ($msg =~ /^!verify/ )
+            {
+                verify($steamid);
+                return;
+            }
+
+            my $final = exists $$steamidmap{$steamid} ? "$$steamidmap{$steamid} aka. `$nick`" : "`$nick`";
             $final   .= "  $msg";
 
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
@@ -283,9 +289,13 @@ my $timer = IO::Async::Timer::Periodic->new(
       store($store, $$config{store}) if $storechanged;
       $storechanged = 0;
 
-      return unless (defined $$store{reminders});
+      for (keys $$store{steamidqueue}->%*)
+      {
+         delete $$store{steamidqueue}{$_} if (exists $$store{steamidqueue}{$_}{ts} && $$store{steamidqueue}{$_}{ts} > (time + 3600));
+         $storechanged = 1;
+      }
 
-      # TODO: verify that discord is actually connected
+      return unless (defined $$store{reminders} && $discord->connected);
 
       $$store{reminders}->@* = grep { defined } map {
          if ( $_->{time} && $_->{time} <= time)
@@ -296,7 +306,9 @@ my $timer = IO::Async::Timer::Periodic->new(
             {
                if ($1 != $_->{owner})
                {
+                  shift($allowed->@*);
                   push($allowed->@*, $1);
+
                   $_->{text} .= " (reminded by <\@$_->{owner}>)";
                }
             }
@@ -384,12 +396,12 @@ sub discord_on_message_create
             my $nsa;
             $nsa = 1 if ( $channel eq $$config{discord}{ayayachan} );
 
-            if ( $param =~ /^STEAM_(0:[01]:[0-9]+)$/ )
+            if ( $param =~ /^STEAM_(0:[01]:[0-9]+)/ )
             {
                $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
                @bind = ( "$1" );
             }
-            elsif ( $param =~ /<@!?(\d+)>/ )
+            elsif ( $param =~ /^<@!?(\d+)>/ )
             {
                my $request;
 
@@ -446,6 +458,9 @@ sub discord_on_message_create
                my $loc = 'Unknown';
                $loc = $input->{formatted_address} if ( $input );
 
+               my $personaname = $$result{'response'}{'players'}->[0]{personaname};
+               $personaname =~ s/$discord_markdown_pattern/\\$1/g;
+
                my $embed = {
                   'color' => '15844367',
                   'footer' => {
@@ -461,7 +476,7 @@ sub discord_on_message_create
                    'fields' => [
                    {
                       'name'   => 'Name',
-                      'value'  => "**[".decode_utf8_lax($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$$result{'response'}{'players'}->[0]{personaname}\")**",
+                      'value'  => "**[".decode_utf8_lax($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$personaname\")**",
                       'inline' => \1,
                     },
                     {
@@ -505,7 +520,7 @@ sub discord_on_message_create
             }
             else
             {
-                $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
             }
          }
          elsif ( $msg =~ /^!stat(us|su)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -568,7 +583,7 @@ sub discord_on_message_create
 
                unless ( $input )
                {
-                  $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                  $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
                   return;
                }
 
@@ -604,7 +619,7 @@ sub discord_on_message_create
 
             unless ($fcloc)
             {
-               $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+               $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
                return;
             }
 
@@ -745,7 +760,7 @@ sub discord_on_message_create
                }
                else
                {
-                  $discord->create_reaction( $channel, $msgid, "\N{U+274C}" )
+                  $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' )
                }
             }
             else
@@ -967,7 +982,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->create_reaction( $channel, $msgid, "\N{U+274C}" )
+               $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' )
             }
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -996,33 +1011,44 @@ sub discord_on_message_create
                   {
                      $$store{users}{$id}{$type} = $value;
                      $storechanged = 1;
-                     $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+                     $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
                   }
                   else
                   {
-                     $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                     $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
                   }
                }
                elsif ($type eq 'steamid')
                {
-                  if ( $value =~ /STEAM_([01]:[01]:[0-9]+)/n )
+                  $value =~ s/\N{U+1F44D}/:1:/g;
+                  $value =~ s/STEAM_1:/STEAM_0:/;
+
+                  if ( $value =~ /STEAM_(0:[01]:[0-9]+)/n && !(exists $$store{steamidqueue}{$value}{$type} || exists $$steamidmap{$value}) )
                   {
-                     $value =~ s/STEAM_1:/STEAM_0:/;
-                     $$store{users}{$id}{$type} = $value;
-                     $$steamidmap{$value} = "<\@$id>";
+                     $$store{steamidqueue}{$value}{$type}     = $value;
+                     $$store{steamidqueue}{$value}{discordid} = $id;
+                     $$store{steamidqueue}{$value}{msgid}     = $msgid;
+                     $$store{steamidqueue}{$value}{ts}        = time;
                      $storechanged = 1;
-                     $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+
+                     $discord->create_reaction( $channel, $msgid, "\N{U+23F3}" );
+                     $discord->send_message( $channel, "<\@$id> Within the next hour, join the twlz Sven Co-op server and type `!verify` in chat to verify your Steam ID." );
+                  }
+                  elsif ( exists $$store{steamidqueue}{$value}{$type} )
+                  {
+                     $discord->create_reaction( $channel, $msgid, "\N{U+23F3}" );
                   }
                   else
                   {
-                     $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                     $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
                   }
                }
                else
                {
                   $$store{users}{$id}{$type} = $value;
                   $storechanged = 1;
-                  $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+
+                  $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
                }
             }
             elsif ($action eq 'get')
@@ -1033,7 +1059,7 @@ sub discord_on_message_create
                }
                else
                {
-                  $discord->create_reaction( $channel, $msgid, "\N{U+274C}" );
+                  $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
                }
             }
          }
@@ -1075,12 +1101,12 @@ sub discord_on_message_create
             }
             elsif ($1 eq 'delete')
             {
-               if ($2 && $2 =~ /id #?(\d+)/i)
+               if ($2 && $2 =~ /(?:#|id )(\d+)/i)
                {
                   $$store{reminders}->@* = grep { defined } map {
                      if ($1 == $_->{id})
                      {
-                        $discord->create_reaction( $channel, $msgid, "\N{U+2705}" );
+                        $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
 
                         $storechanged = 1;
                         undef $_;
@@ -1135,9 +1161,9 @@ sub discord_on_message_create
             }
             else
             {
-               if ($delay)
+               if ($delay && $delay < 604800)
                {
-                  $time = time + ($delay) * 60;
+                  $time = time + ($delay * 60);
                }
                else
                {
@@ -1164,7 +1190,7 @@ sub discord_on_message_create
                time   => $time,
             });
 
-            $discord->create_reaction( $channel, $msgid, "\N{U+2705}" ); 
+            $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' ); 
             #$discord->send_message( $channel, '`In: '. duration($time - time) . '`' );
          }
       }
@@ -1232,4 +1258,22 @@ sub quit ($)
 {
    store($store, $$config{store});
    exit;
+}
+
+sub verify ($steamid)
+{
+	if ( defined $$store{steamidqueue}{$steamid}{steamid} )
+	{
+		$$store{users}{$$store{steamidqueue}{$steamid}{discordid}}{steamid} = $steamid;
+		$$steamidmap{$steamid} = "<\@$$store{steamidqueue}{$steamid}{discordid}>";
+		$storechanged = 1;
+
+      $discord->delete_all_reactions_for_emoji( $$config{discord}{linkchan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}", sub { $discord->create_reaction( $$config{discord}{linkchan}, $$store{steamidqueue}{$steamid}{msgid}, ':greentick:712004372678049822' ) } );
+		$discord->send_message( $$config{discord}{linkchan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your SteamID!" );
+      $discord->add_guild_member_role( 458323696910598165, $$store{steamidqueue}{$steamid}{discordid}, 712296542211670088 );
+
+      delete $$store{steamidqueue}{$steamid};
+	}
+
+   return;
 }
