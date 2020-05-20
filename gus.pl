@@ -1008,9 +1008,6 @@ sub discord_on_message_create
             my $type   = $2;
             my $value  = $3;
 
-            say $msg;
-            say $value;
-
             if ($action eq 'set')
             {
                return unless (defined $value);
