@@ -418,7 +418,7 @@ sub discord_on_message_create
 #               }
 #               else
 #               {
-#                  $discord->send_message( $channel, 'The requested user must set his Steam ID by using `!store set steamid STEAM_0:X:XXXXXX` first' );
+#                  $discord->send_message( $channel, 'The requested user must set his Steam ID by using `!set steamid STEAM_0:X:XXXXXX` first.' );
 #                  return;
 #               }
 #
@@ -527,7 +527,7 @@ sub discord_on_message_create
             }
             else
             {
-                $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+                r_red( $channel, $msgid );
             }
          }
          elsif ( $msg =~ /^!stat(us|su)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -549,7 +549,7 @@ sub discord_on_message_create
 
                unless ( defined $$infos{$ap}{'info'} )
                {
-                  $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+                  r_pepe( $channel, $msgid );
                }
                else
                {
@@ -590,7 +590,7 @@ sub discord_on_message_create
 
                unless ( $input )
                {
-                  $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+                  r_red( $channel, $msgid );
                   return;
                }
 
@@ -626,7 +626,7 @@ sub discord_on_message_create
 
             unless ($fcloc)
             {
-               $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+               r_red( $channel, $msgid );
                return;
             }
 
@@ -722,7 +722,7 @@ sub discord_on_message_create
             my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+               r_pepe( $channel, $msgid );
                return;
             }
             my $i = decode_json ( $r->decoded_content );
@@ -733,7 +733,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+               r_pepe( $channel, $msgid );
             }
          }
          elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{nsfwchan} )
@@ -745,7 +745,7 @@ sub discord_on_message_create
             my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+               r_pepe( $channel, $msgid );
                return;
             }
             my $ud = decode_json ( $r->decoded_content );
@@ -767,12 +767,12 @@ sub discord_on_message_create
                }
                else
                {
-                  $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' )
+                  r_red( $channel, $msgid );
                }
             }
             else
             {
-               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+               r_pepe( $channel, $msgid );
             }
          }
          elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{discord}{wufluchan} )
@@ -782,7 +782,7 @@ sub discord_on_message_create
             my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+               r_pepe( $channel, $msgid );
                return;
             }
             my $i = decode_json ( encode_utf8_lax($r->decoded_content) );
@@ -904,7 +904,7 @@ sub discord_on_message_create
                $discord->send_message( $channel, $message );
             }
             else {
-               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+               r_pepe( $channel, $msgid );
             }
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -926,7 +926,7 @@ sub discord_on_message_create
             my $r = $ua->get( $url, 'Content-Type' => 'application/json' );
             unless ( $r->is_success )
             {
-               $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+               r_pepe( $channel, $msgid );
                return;
             }
             my $omdb = decode_json ( $r->decoded_content );
@@ -989,7 +989,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' )
+               r_red( $channel, $msgid );
             }
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -1002,7 +1002,7 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, join '', @x );
          }
-         elsif ( $msg =~ /^!store (set|get) (tz|steamid|linknick) ?(.*)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         elsif ( $msg =~ /^!(set|get) (tz|steamid|linknick) ?(.*)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my $action = $1;
             my $type   = $2;
@@ -1021,11 +1021,11 @@ sub discord_on_message_create
                   {
                      $$store{users}{$id}{$type} = $value;
                      $storechanged = 1;
-                     $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
+                     r_green( $channel, $msgid );
                   }
                   else
                   {
-                     $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+                     r_red( $channel, $msgid );
                   }
                }
                elsif ($type eq 'steamid')
@@ -1050,26 +1050,33 @@ sub discord_on_message_create
                   }
                   else
                   {
-                     $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+                     r_red( $channel, $msgid );
                   }
                }
                elsif ($type eq 'linknick')
                {
                   if (defined $value)
                   {
+                     unless (defined $$store{users}{$id}{steamid})
+                     {
+                        r_red( $channel, $msgid );
+                        $discord->send_message( $channel, "<\@$id> You have no Steam ID set, use `!set steamid STEAM_0:X:XXXXXX` first." );
+                        return;
+                     }
+
                      if ($value ~~ [0, 1])
                      {
                         $$store{users}{$id}{linknick} = $3;
-                        $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
+                        r_green( $channel, $msgid );
                      }
                      else
                      {
-                        $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+                        r_what( $channel, $msgid );
                      }
                   }
                   else
                   {
-                     $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+                     r_what( $channel, $msgid );
                   }
                }
                else
@@ -1077,7 +1084,7 @@ sub discord_on_message_create
                   $$store{users}{$id}{$type} = $value;
                   $storechanged = 1;
 
-                  $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
+                  r_green( $channel, $msgid );
                }
             }
             elsif ($action eq 'get')
@@ -1088,7 +1095,7 @@ sub discord_on_message_create
                }
                else
                {
-                  $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+                  r_red( $channel, $msgid );
                }
             }
          }
@@ -1135,7 +1142,7 @@ sub discord_on_message_create
                   $$store{reminders}->@* = grep { defined } map {
                      if ($1 == $_->{id})
                      {
-                        $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
+                        r_green( $channel, $msgid );
 
                         $storechanged = 1;
                         undef $_;
@@ -1162,7 +1169,7 @@ sub discord_on_message_create
             {
                unless (exists $$store{users}{$id}{tz})
                {
-                  $discord->send_message( $channel, "<\@$id> Set your local timezone (https://u.nu/7skv0) with `!store set tz <Time/Zone>` first (case-sensitive!) E.g. `!store set tz Asia/Omsk`" );
+                  $discord->send_message( $channel, "<\@$id> Set your local timezone (https://u.nu/7skv0) with `!set tz <Time/Zone>` first (case-sensitive!) E.g. `!set tz Asia/Omsk`" );
                   return;
                }
 
@@ -1181,7 +1188,7 @@ sub discord_on_message_create
 
                if ($@ || !$time || ($text && length($text) > 512))
                {
-                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+                  r_what( $channel, $msgid );
                   return;
                }
 
@@ -1195,14 +1202,14 @@ sub discord_on_message_create
                }
                else
                {
-                  $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+                  r_what( $channel, $msgid );
                   return;
                }
             }
 
             if ($time < time || $time > 7952342400)
             {
-               $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+               r_what( $channel, $msgid );
                return;
             }
 
@@ -1218,7 +1225,7 @@ sub discord_on_message_create
                time   => $time,
             });
 
-            $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' ); 
+            r_green( $channel, $msgid );
             #$discord->send_message( $channel, '`In: '. duration($time - time) . '`' );
          }
          elsif ( $msg =~ /^!help/i )
@@ -1304,10 +1311,38 @@ sub verify ($steamid)
       $discord->delete_all_reactions_for_emoji( $$config{discord}{linkchan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
       $discord->send_message( $$config{discord}{linkchan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID!" );
       $discord->add_guild_member_role( 458323696910598165, $$store{steamidqueue}{$steamid}{discordid}, 712296542211670088 );
-      $discord->create_reaction( $$config{discord}{linkchan}, $$store{steamidqueue}{$steamid}{msgid}, ':greentick:712004372678049822' );
+      r_green( $$config{discord}{linkchan}, $$store{steamidqueue}{$steamid}{msgid} );
 
       delete $$store{steamidqueue}{$steamid};
    }
+
+   return;
+}
+
+sub r_green ($channel, $msgid)
+{
+   $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
+
+   return;
+}
+
+sub r_red ($channel, $msgid)
+{
+   $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+
+   return;
+}
+
+sub r_what ($channel, $msgid)
+{
+   $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
+
+   return;
+}
+
+sub r_pepe ($channel, $msgid)
+{
+   $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
 
    return;
 }
