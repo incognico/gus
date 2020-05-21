@@ -1065,7 +1065,7 @@ sub discord_on_message_create
                         return;
                      }
 
-                     if ($value ~~ [0, 1])
+                     if ($value ~~ ['0', '1'])
                      {
                         $$store{users}{$id}{linknick} = $3;
                         r_green( $channel, $msgid );
@@ -1123,7 +1123,7 @@ sub discord_on_message_create
 
                   $text .= "$_->{id} :: <#$_->{chan}> :: <\@$_->{owner}> :: " . ($_->{target} =~ /<\@!?$_->{owner}>/ ? 'owner' : $_->{target})
                         . " :: $_->{text} :: " . DateTime->from_epoch(epoch => $_->{time})->strftime('%F %R') . ' :: '
-                        . duration(int(($_->{time} - time) + 60)) . "\n";
+                        . duration(($_->{time} - time) + 71) . "\n";
                }
 
                while ($text =~ /\G(.{0,1990}(?:.\z|\R))/sg)
@@ -1228,6 +1228,76 @@ sub discord_on_message_create
 
             r_green( $channel, $msgid );
             #$discord->send_message( $channel, '`In: '. duration($time - time) . '`' );
+         }
+         elsif ( $msg =~ /^!time ?(.+)?/i )
+         {
+            my $tz = $1;
+
+            unless (defined $tz)
+            {
+               if (exists $$store{users}{$id}{tz})
+               {
+                  $tz = $$store{users}{$id}{tz};
+               }
+               else
+               {
+                  $discord->send_message( $channel, "<\@$id> Set your local timezone (https://u.nu/7skv0) with `!set tz <Time/Zone>` first (case-sensitive!) E.g. `!set tz Asia/Omsk`" );
+                  return;
+               }
+            }
+
+            if ( DateTime::TimeZone->is_valid_name($tz) )
+            {
+               my ($date, $time, $sname, $offset, $emoji, $m, $day, $month, $epoch, $week) = split(/#/, DateTime->now(time_zone => $tz)->strftime('%F#%T#%Z#%z#%l#%M#%A#%B#%s#%V'));
+               $emoji =~ s/\s//g;
+               $emoji .= '30' if ($m >= 30);
+
+               my $embed = {
+                  'color' => '15844367',
+                   'title' => ':clock' . $emoji . ': **Time** for zone **' . $tz . '**',
+                   'footer' => {
+                      'text' => 'Day: ' . $day . '  Month: ' . $month . '  Epoch: ' . $epoch,
+                   },
+                   'fields' => [
+                    {
+                       'name'   => 'Time',
+                       'value'  => $time,
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Date',
+                       'value'  => $date,
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Week Number',
+                       'value'  => $week,
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'Shortname',
+                       'value'  => $sname,
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'UTC Offset',
+                       'value'  => $offset,
+                       'inline' => \1,
+                    },
+                    ],
+               };
+
+               my $message = {
+                  'content' => '',
+                  'embed' => $embed,
+               };
+
+               $discord->send_message( $channel, $message );
+            }
+            else
+            {
+               r_red( $channel, $msgid );
+            }
          }
          elsif ( $msg =~ /^!help/i )
          {
