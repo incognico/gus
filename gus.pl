@@ -75,6 +75,7 @@ my $config = {
       nocmdchans => [706113584626663475, 610862900357234698, 673626913864155187, 698803767512006677],
       client_id  => ,
       owner_id   => 373912992758235148,
+      ver_role   => 712296542211670088,
    }
 };
 
@@ -87,7 +88,7 @@ my $discord = Mojo::Discord->new(
    'verbose'   => 0,
    'logdir'    => "$ENV{HOME}/gus",
    'logfile'   => 'discord.log',
-   'loglevel'  => 'debug',
+   'loglevel'  => 'info',
 );
 
 my $maps = {
@@ -199,7 +200,7 @@ my $filestream = IO::Async::FileStream->new(
          {
             say localtime(time) . " -> status: $line";
 
-            my @data = split( / /, $line );
+            my @data = split( ' ', $line );
 
             $discord->status_update( { 'name' => 'SC on ' . $data[1], type => 0 } );
 
@@ -379,7 +380,7 @@ sub discord_on_message_create
             {
                $msg =~ s/(?:\R^)\@$self->{'users'}->{$1}->{'username'}/ >>> /m if ($1 == $self->{'id'});
             }
-            $msg =~ s/(?:\R|\s)+/ /g;
+            $msg =~ s/(\R|\s)+/ /gn;
             $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
             $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
             $msg =~ s/<a?(:.+:)\d+>/$1/g; # emoji
@@ -387,7 +388,9 @@ sub discord_on_message_create
             return unless $msg;
 
             my $nick = defined $$member{'nick'} ? $$member{'nick'} : $$author{'username'};
+            $nick =~ s/`//g;
             $nick =~ s/%/%%/g;
+            $nick =~ s/(\R|\s)+/ /gn;
 
             say localtime(time) . " <- <$nick> $msg";
 
@@ -830,6 +833,11 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
+                       'name'   => ':flag_br: **Brazil**',
+                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
+                       'inline' => \0,
+                    },
+                    {
                        'name'   => ':flag_es: **Spain**',
                        'value'  => "**I:** $$i{global}{Spain}{confirmed} (**C:** " . ($$i{global}{Spain}{confirmed}-$$i{global}{Spain}{deaths}-$$i{global}{Spain}{recovered}) . ") **D:** $$i{global}{Spain}{deaths} (" . sprintf('%.2f', ($$i{global}{Spain}{deaths}/$$i{global}{Spain}{confirmed})*100) . "%) **R:** $$i{global}{Spain}{recovered}",
                        'inline' => \0,
@@ -838,11 +846,6 @@ sub discord_on_message_create
                        'name'   => ':flag_gb: **United Kingdom**',
                        'value'  => "**I:** $$i{global}{'United Kingdom'}{confirmed} (**C:** " . ($$i{global}{'United Kingdom'}{confirmed}-$$i{global}{'United Kingdom'}{deaths}-$$i{global}{'United Kingdom'}{recovered}) . ") **D:** $$i{global}{'United Kingdom'}{deaths} (" . sprintf('%.2f', ($$i{global}{'United Kingdom'}{deaths}/$$i{global}{'United Kingdom'}{confirmed})*100) . "%) **R:** $$i{global}{'United Kingdom'}{recovered}",
                        'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_br: **Brazil**',
-                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
-                       'inline' => \0,
                     },
                     {
                        'name'   => ':flag_it: **Italy**',
@@ -885,13 +888,13 @@ sub discord_on_message_create
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_be: **Belgium**',
-                       'value'  => "**I:** $$i{global}{Belgium}{confirmed} (**C:** " . ($$i{global}{Belgium}{confirmed}-$$i{global}{Belgium}{deaths}-$$i{global}{Belgium}{recovered}) . ") **D:** $$i{global}{Belgium}{deaths} (" . sprintf('%.2f', ($$i{global}{Belgium}{deaths}/$$i{global}{Belgium}{confirmed})*100) . "%) **R:** $$i{global}{Belgium}{recovered}",
+                       'name'   => ':flag_sa: **Saudi Arabia**',
+                       'value'  => "**I:** $$i{global}{'Saudi Arabia'}{confirmed} (**C:** " . ($$i{global}{'Saudi Arabia'}{confirmed}-$$i{global}{'Saudi Arabia'}{deaths}-$$i{global}{'Saudi Arabia'}{recovered}) . ") **D:** $$i{global}{'Saudi Arabia'}{deaths} (" . sprintf('%.2f', ($$i{global}{'Saudi Arabia'}{deaths}/$$i{global}{'Saudi Arabia'}{confirmed})*100) . "%) **R:** $$i{global}{'Saudi Arabia'}{recovered}",
                        'inline' => \0,
                     },
                     {
-                       'name'   => ':flag_sa: **Saudi Arabia**',
-                       'value'  => "**I:** $$i{global}{'Saudi Arabia'}{confirmed} (**C:** " . ($$i{global}{'Saudi Arabia'}{confirmed}-$$i{global}{'Saudi Arabia'}{deaths}-$$i{global}{'Saudi Arabia'}{recovered}) . ") **D:** $$i{global}{'Saudi Arabia'}{deaths} (" . sprintf('%.2f', ($$i{global}{'Saudi Arabia'}{deaths}/$$i{global}{'Saudi Arabia'}{confirmed})*100) . "%) **R:** $$i{global}{'Saudi Arabia'}{recovered}",
+                       'name'   => ':flag_mx: **Mexico**',
+                       'value'  => "**I:** $$i{global}{Mexico}{confirmed} (**C:** " . ($$i{global}{Mexico}{confirmed}-$$i{global}{Mexico}{deaths}-$$i{global}{Mexico}{recovered}) . ") **D:** $$i{global}{Mexico}{deaths} (" . sprintf('%.2f', ($$i{global}{Mexico}{deaths}/$$i{global}{Mexico}{confirmed})*100) . "%) **R:** $$i{global}{Mexico}{recovered}",
                        'inline' => \0,
                     },
                     ],
@@ -909,7 +912,7 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
-            my @args = split(/ /, $1);
+            my @args = split(' ', $1);
             my $year;
             $year = pop(@args) if ($args[-1] =~ /^\(?\d{4}\)?$/);
             $year =~ s/[^\d]//g if ($year);
@@ -1035,6 +1038,7 @@ sub discord_on_message_create
                      $$store{steamidqueue}{$value}{$type}     = $value;
                      $$store{steamidqueue}{$value}{discordid} = $id;
                      $$store{steamidqueue}{$value}{msgid}     = $msgid;
+                     $$store{steamidqueue}{$value}{chan}      = $channel;
                      $$store{steamidqueue}{$value}{ts}        = time;
                      $storechanged = 1;
 
@@ -1284,10 +1288,10 @@ sub duration ($sec)
    my @gmt = gmtime($sec);
 
    $gmt[5] -= 70;
-   return   ($gmt[5] ?                                                       $gmt[5].'y' : '').
-            ($gmt[7] ? ($gmt[5]                                  ? ' ' : '').$gmt[7].'d' : '').
-            ($gmt[2] ? ($gmt[5] || $gmt[7]                       ? ' ' : '').$gmt[2].'h' : '').
-            ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2]            ? ' ' : '').$gmt[1].'m' : '');
+   return   ($gmt[5] ?                                            $gmt[5].'y' : '').
+            ($gmt[7] ? ($gmt[5]                       ? ' ' : '').$gmt[7].'d' : '').
+            ($gmt[2] ? ($gmt[5] || $gmt[7]            ? ' ' : '').$gmt[2].'h' : '').
+            ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2] ? ' ' : '').$gmt[1].'m' : '');
 }
 
 sub quit ($)
@@ -1305,10 +1309,10 @@ sub verify ($steamid)
       $$steamidmap{$steamid} = $$store{steamidqueue}{$steamid}{discordid};
       $storechanged = 1;
 
-      $discord->delete_all_reactions_for_emoji( $$config{discord}{linkchan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
-      $discord->send_message( $$config{discord}{linkchan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID!" );
-      $discord->add_guild_member_role( 458323696910598165, $$store{steamidqueue}{$steamid}{discordid}, 712296542211670088 );
-      r_green( $$config{discord}{linkchan}, $$store{steamidqueue}{$steamid}{msgid} );
+      $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
+      $discord->add_guild_member_role( $$config{discord}{guild_id}, $$store{steamidqueue}{$steamid}{discordid}, $$config{discord}{ver_role} );
+      $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted. Use `!set linknick 1` to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
+      r_green( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid} );
 
       delete $$store{steamidqueue}{$steamid};
    }
@@ -1319,27 +1323,23 @@ sub verify ($steamid)
 sub r_green ($channel, $msgid)
 {
    $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
-
    return;
 }
 
 sub r_red ($channel, $msgid)
 {
    $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
-
    return;
 }
 
 sub r_what ($channel, $msgid)
 {
    $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
-
    return;
 }
 
 sub r_pepe ($channel, $msgid)
 {
    $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
-
    return;
 }
