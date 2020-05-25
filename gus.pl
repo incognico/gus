@@ -42,7 +42,7 @@ use Net::SRCDS::Queries;
 use Path::This '$THISDIR';
 use Term::Encoding qw(term_encoding);
 use URI::Escape;
-use Weather::YR;
+use Weather::METNO;
 use YAML::Tiny qw(LoadFile DumpFile);
 
 $ua->agent( 'Mozilla/5.0' );
@@ -135,22 +135,6 @@ my $maps = {
    'tunnelvision_1'       => '<:KannaZoooming:662976056956813353> Tunnel Vision',
    'uboa'                 => ':rice_ball: UBOA',
 };
-
-my @winddesc = (
-   'Calm',
-   'Light air',
-   'Light breeze',
-   'Gentle breeze',
-   'Moderate breeze',
-   'Fresh breeze',
-   'Strong breeze',
-   'High wind',
-   'Gale',
-   'Strong gale',
-   'Storm',
-   'Violent storm',
-   'Hurricane'
-);
 
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||__|\*|~|>)/;
@@ -624,40 +608,22 @@ sub discord_on_message_create
                $storechanged = 1;
             }
 
-            my $fcloc;
-            eval { $fcloc = Weather::YR->new(lat => $lat, lon => $lon, msl => int($alt), tz => DateTime::TimeZone->new(name => 'Europe/Berlin'), lang => 'en') };
+            my $w = Weather::METNO->new(lat => $lat, lon => $lon, alt => $alt, lang => 'en', uid => '<nico@lifeisbug.com>');
 
-            unless ($fcloc)
-            {
-               r_red( $channel, $msgid );
-               return;
-            }
-
-            my $fc = $fcloc->location_forecast->now;
-
-            my $beaufort   = $fc->wind_speed->beaufort;
-            my $celsius    = $fc->temperature->celsius;
-            my $cloudiness = $fc->cloudiness->percent;
-            my $fahrenheit = $fc->temperature->fahrenheit;
-            my $fog        = $fc->fog->percent;
-            my $humidity   = $fc->humidity->percent;
-            my $symbol     = $fc->precipitation->symbol->text;
-            my $symbolid   = $fc->precipitation->symbol->number;
-            my $winddir    = $fc->wind_direction->name;
+            my $symboltype = 'png';
+            my $symbolurl  = 'https://distfiles.lifeisabug.com/metno/' . $symboltype;
 
             my $embed = {
                'color' => '15844367',
                'provider' => {
-                  'name' => 'yr.no',
-                  'url' => 'https://www.yr.no/',
+                  'name' => 'met.no',
+                  'url'  => 'https://www.met.no/',
                 },
                 'thumbnail' => {
-                   'url' => "https://api.met.no/weatherapi/weathericon/1.1/?symbol=$symbolid&content_type=image/png",
-                   'width' => 38,
-                   'height' => 38,
+                   'url'    => $symbolurl . '/' . $w->symbol . '.' . $symboltype,
                 },
                 'footer' => {
-                   'text' => "Location altitude: " . sprintf('%dm / %dft', int($alt), int($alt * 3.2808)),
+                   'text' => $w->symbol_txt . sprintf(' / Location altitude: %dm (%dft)', int($alt), int($alt * 3.2808)),
                 },
                 'fields' => [
                 {
@@ -667,32 +633,32 @@ sub discord_on_message_create
                  },
                  {
                     'name'   => 'Temperature',
-                    'value'  => sprintf('**%.1f°C** / **%.1f°F**', $celsius, $fahrenheit),
-                    'inline' => \1,
-                 },
-                 {
-                    'name'   => 'Symbol',
-                    'value'  => $symbol,
+                    'value'  => sprintf('**%.1f°C** / %.1f°F', $w->temp_c, $w->temp_f),
                     'inline' => \1,
                  },
                  {
                     'name'   => 'Cloudiness',
-                    'value'  => sprintf('%u%%', $cloudiness),
+                    'value'  => sprintf('%u%%', $w->cloudiness),
                     'inline' => \1,
                  },
                  {
                     'name'   => 'Humidity',
-                    'value'  => sprintf('%u%%', $humidity),
-                    'inline' => \1,
-                 },
-                 {
-                    'name'   => 'Fog',
-                    'value'  => sprintf('%u%%', $fog),
+                    'value'  => sprintf('%u%%', $w->humidity),
                     'inline' => \1,
                  },
                  {
                     'name'   => 'Wind',
-                    'value'  => sprintf('%s from %s', $winddesc[$beaufort], $winddir),
+                    'value'  => sprintf('%s from %s', $w->windspeed_bft_txt, $w->windfrom_dir),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Fog',
+                    'value'  => sprintf('%u%%', $w->foginess),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'UV Index',
+                    'value'  => sprintf('%.1f', $w->uvindex),
                     'inline' => \1,
                  },
                  ],
@@ -1381,7 +1347,7 @@ sub verify ($steamid)
 
       $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
       $discord->add_guild_member_role( $$config{discord}{guild_id}, $$store{steamidqueue}{$steamid}{discordid}, $$config{discord}{ver_role} );
-      $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted. Use `!set linknick 1` to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
+      $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted. Use `!set linknick 1` in here to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
       r_green( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid} );
 
       delete $$store{steamidqueue}{$steamid};
