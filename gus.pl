@@ -544,7 +544,7 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!w(?:eather)? ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
-            my ($alt, $flg, $loc, $lat, $lon) = (0, 'white');
+            my ($alt, $flg, $loc, $lat, $lon, $tz) = (0, 'white');
 
             unless (defined $1)
             {
@@ -554,6 +554,7 @@ sub discord_on_message_create
                   $lat = $$store{users}{$id}{weather_priv}{lat};
                   $lon = $$store{users}{$id}{weather_priv}{lon};
                   $alt = $$store{users}{$id}{weather_priv}{alt};
+                  $tz  = exists $$store{users}{$id}{weather_priv}{tz} ? $$store{users}{$id}{weather_priv}{tz} : (tz_by_coords($lat, $lon))[0];
                   $flg = $$store{users}{$id}{weather_priv}{flg};
                }
                else
@@ -579,6 +580,7 @@ sub discord_on_message_create
                $lat = $input->{geometry}{location}{lat};
                $lon = $input->{geometry}{location}{lng};
                $alt = elev_by_coords($lat, $lon);
+               $tz  = (tz_by_coords($lat, $lon))[0];
 
                for ($$input{address_components}->@*)
                {
@@ -589,10 +591,12 @@ sub discord_on_message_create
                $$store{users}{$id}{weather_priv}{lat} = $lat;
                $$store{users}{$id}{weather_priv}{lon} = $lon;
                $$store{users}{$id}{weather_priv}{alt} = $alt;
+               $$store{users}{$id}{weather_priv}{tz}  = $tz;
                $$store{users}{$id}{weather_priv}{flg} = $flg;
 
                $storechanged = 1;
             }
+
 
             my $w = Weather::METNO->new(lat => $lat, lon => $lon, alt => $alt, lang => 'en', uid => '<nico@lifeisbug.com>');
 
@@ -605,31 +609,32 @@ sub discord_on_message_create
                   'name' => 'met.no',
                   'url'  => 'https://www.met.no/',
                 },
+                'author' => {
+                   'name'     => sprintf('Weather for %s', $loc),
+                   'url'      => sprintf('https://www.google.com/maps/@%f,%f,13z', $lat, $lon),
+                   'icon_url' => sprintf('https://www.countryflags.io/%s/flat/64.png', $flg)
+                },
+                'description' => sprintf('**%s**', $w->symbol_txt),
                 'thumbnail' => {
-                   'url'    => $symbolurl . '/' . $w->symbol . '.' . $symboltype,
+                   'url'    => sprintf('%s/%s.%s', $symbolurl, $w->symbol, $symboltype),
                 },
                 'footer' => {
-                   'text' => $w->symbol_txt . sprintf(' / Location altitude: %dm (%dft)', int($alt), int($alt * 3.2808)),
+                   'text' => sprintf('Elevation: %dm (%dft) / Local time: %s', int($alt), int($alt * 3.2808), DateTime->now(time_zone => $tz)->strftime('%R')),
                 },
                 'fields' => [
-                {
-                   'name'   => ":flag_$flg:" . ' Weather for:',
-                   'value'  => "**[$loc](https://www.google.com/maps/\@$lat,$lon,13z)**",
-                   'inline' => \0,
-                 },
                  {
                     'name'   => 'Temperature',
                     'value'  => sprintf('**%.1f°C** / %.1f°F', $w->temp_c, $w->temp_f),
                     'inline' => \1,
                  },
                  {
-                    'name'   => 'Cloudiness',
-                    'value'  => sprintf('%u%%', $w->cloudiness),
+                    'name'   => 'Humidity',
+                    'value'  => sprintf('%u%%', $w->humidity),
                     'inline' => \1,
                  },
                  {
-                    'name'   => 'Humidity',
-                    'value'  => sprintf('%u%%', $w->humidity),
+                    'name'   => 'Cloudiness',
+                    'value'  => sprintf('%u%%', $w->cloudiness),
                     'inline' => \1,
                  },
                  {
@@ -644,7 +649,7 @@ sub discord_on_message_create
                  },
                  {
                     'name'   => 'UV Index',
-                    'value'  => sprintf('%.1f', $w->uvindex),
+                    'value'  => sprintf('%.3g', $w->uvindex),
                     'inline' => \1,
                  },
                  ],
