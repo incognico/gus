@@ -578,6 +578,7 @@ sub discord_on_message_create
                $loc = $input->{formatted_address};
                $lat = $input->{geometry}{location}{lat};
                $lon = $input->{geometry}{location}{lng};
+               $alt = elev_by_coords($lat, $lon);
 
                for ($$input{address_components}->@*)
                {
@@ -587,7 +588,7 @@ sub discord_on_message_create
                $$store{users}{$id}{weather}           = $loc;
                $$store{users}{$id}{weather_priv}{lat} = $lat;
                $$store{users}{$id}{weather_priv}{lon} = $lon;
-               $$store{users}{$id}{weather_priv}{alt} = elev_by_coords($lat, $lon);
+               $$store{users}{$id}{weather_priv}{alt} = $alt;
                $$store{users}{$id}{weather_priv}{flg} = $flg;
 
                $storechanged = 1;
@@ -1336,7 +1337,7 @@ sub elev_by_coords ($lat, $lon)
    if ($json)
    {
       my $elevdata = decode_json($json);
-      return $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
+      return $$elevdata{results}[0]{elevation} if ( $$elevdata{status} eq 'OK' );
    }
 
    return;
