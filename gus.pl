@@ -20,7 +20,7 @@ no warnings qw(experimental::signatures experimental::smartmatch);
 
 binmode( STDOUT, ":encoding(UTF-8)" );
 
-$SIG{INT} = \&quit;
+local $SIG{INT} = \&quit;
 
 use DBI;
 use DBD::SQLite::Constants ':file_open';
@@ -165,6 +165,7 @@ open my $fh, '<', $$config{'fromsven'} or die;
 
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
+
    interval => 1.5,
 
    on_initial => sub ($self, $)
@@ -277,6 +278,7 @@ my $filestream = IO::Async::FileStream->new(
 
 my $timer = IO::Async::Timer::Periodic->new(
    interval => 15,
+
    on_tick => sub ($) {
       DumpFile($$config{store}, $store) if $storechanged;
       $storechanged = 0;
@@ -444,14 +446,6 @@ sub discord_on_message_create
 
                my $result2 = decode_json( $content2 );
 
-               my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'}, result_type => 'locality|sublocality|administrative_area_level_1|country|political');
-
-               my $input;
-               eval { $input = $geo->reverse_geocode( latlng => sprintf('%.3f,%.3f', $r->[12], $r->[13]) ) };
-
-               my $loc = 'Unknown';
-               $loc = $input->{formatted_address} if ( $input );
-
                my $personaname = $$result{'response'}{'players'}->[0]{personaname};
                $personaname =~ s/$discord_markdown_pattern/\\$1/g;
 
@@ -590,19 +584,10 @@ sub discord_on_message_create
                   $flg = lc($_->{short_name}) if ('country' ~~ $$_{types}->@*);
                }
 
-               my $json = get( "https://maps.googleapis.com/maps/api/elevation/json?key=$$config{'gmapikey'}&locations=" . $lat . ',' . $lon );
-
-               if ($json)
-               {
-                  my $elevdata;
-                  eval { $elevdata = decode_json($json) };
-                  $alt = $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
-               }
-
                $$store{users}{$id}{weather}           = $loc;
                $$store{users}{$id}{weather_priv}{lat} = $lat;
                $$store{users}{$id}{weather_priv}{lon} = $lon;
-               $$store{users}{$id}{weather_priv}{alt} = $alt;
+               $$store{users}{$id}{weather_priv}{alt} = elev_by_coords($lat, $lon);
                $$store{users}{$id}{weather_priv}{flg} = $flg;
 
                $storechanged = 1;
@@ -1211,59 +1196,73 @@ sub discord_on_message_create
                   return;
                }
             }
+            
+            my $loc;
 
-            if ( DateTime::TimeZone->is_valid_name($tz) )
+            unless ( DateTime::TimeZone->is_valid_name($tz) )
             {
-               my ($date, $time, $sname, $offset, $emoji, $m, $day, $month, $epoch, $week) = split(/#/, DateTime->now(time_zone => $tz)->strftime('%F#%T#%Z#%z#%l#%M#%A#%B#%s#%V'));
-               $emoji =~ s/\s//g;
-               $emoji .= '30' if ($m >= 30);
+               my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
 
-               my $embed = {
-                  'color' => '15844367',
-                   'title' => ':clock' . $emoji . ': **Time** for zone **' . $tz . '**',
-                   'footer' => {
-                      'text' => 'Day: ' . $day . '  Month: ' . $month . '  Epoch: ' . $epoch,
-                   },
-                   'fields' => [
-                    {
-                       'name'   => 'Time',
-                       'value'  => $time,
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => 'Date',
-                       'value'  => $date,
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => 'Week Number',
-                       'value'  => $week,
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => 'Shortname',
-                       'value'  => $sname,
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => 'UTC Offset',
-                       'value'  => $offset,
-                       'inline' => \1,
-                    },
-                    ],
-               };
+               my $input;
+               eval { $input = $geo->geocode(location => $tz) };
 
-               my $message = {
-                  'content' => '',
-                  'embed' => $embed,
-               };
+               unless ( $input )
+               {
+                  r_red( $channel, $msgid );
+                  return;
+               }
 
-               $discord->send_message( $channel, $message );
+               $loc = $input->{formatted_address};
+               $tz  = (tz_by_coords($input->{geometry}{location}{lat}, $input->{geometry}{location}{lng}))[0];
             }
-            else
-            {
-               r_red( $channel, $msgid );
-            }
+
+            my ($date, $time, $sname, $offset, $emoji, $m, $day, $month, $epoch, $week) = split(/#/, DateTime->now(time_zone => $tz)->strftime('%F#%T#%Z#%z#%l#%M#%A#%B#%s#%V'));
+            $emoji =~ s/\s//g;
+            $emoji .= '30' if ($m >= 30);
+
+            my $embed = {
+               'color' => '15844367',
+                'title' => ':clock' . $emoji . ': **Time** ' . ($loc ? "in **$loc" : "for zone **$tz") . '**',
+                'footer' => {
+                   'text' => 'Day: ' . $day . ' / Month: ' . $month . ' / Epoch: ' . $epoch,
+                },
+                'fields' => [
+                 {
+                    'name'   => 'Time',
+                    'value'  => $time,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Date',
+                    'value'  => $date,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Week Number',
+                    'value'  => $week,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Shortname',
+                    'value'  => $sname,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'UTC Offset',
+                    'value'  => $offset,
+                    'inline' => \1,
+                 },
+                 ],
+            };
+
+            push $$embed{'fields'}->@*, { 'name' => 'Zone ID', 'value' => $tz, 'inline' => \1, } if $loc;
+
+            my $message = {
+               'content' => '',
+               'embed' => $embed,
+            };
+
+            $discord->send_message( $channel, $message );
          }
          elsif ( $msg =~ /^!help/i )
          {
@@ -1330,11 +1329,30 @@ sub duration ($sec)
             ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2] ? ' ' : '').$gmt[1].'m' : '');
 }
 
-sub quit ($)
+sub elev_by_coords ($lat, $lon)
 {
-   DumpFile($$config{store}, $store);
-   say "\n" . 'Saved.';
-   exit;
+   my $json = get('https://maps.googleapis.com/maps/api/elevation/json?key=' . $$config{'gmapikey'} . '&locations=' . $lat . ',' . $lon);
+
+   if ($json)
+   {
+      my $elevdata = decode_json($json);
+      return $elevdata->{results}->[0]->{elevation} if ( $elevdata->{status} eq 'OK' );
+   }
+
+   return;
+}
+
+sub tz_by_coords ($lat, $lon)
+{
+   my $json = get('https://maps.googleapis.com/maps/api/timezone/json?language=en&timestamp=' . time . '&key=' . $$config{'gmapikey'} . '&location=' . $lat . ',' . $lon);
+
+   if ($json)
+   {
+      my $tzdata = decode_json($json);
+      return ($$tzdata{timeZoneId}, $$tzdata{timeZoneName}) if ($$tzdata{status} eq 'OK' && DateTime::TimeZone->is_valid_name($$tzdata{timeZoneId}));
+   }
+
+   return;
 }
 
 sub verify ($steamid)
@@ -1378,4 +1396,11 @@ sub r_pepe ($channel, $msgid)
 {
    $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
    return;
+}
+
+sub quit ($)
+{
+   DumpFile($$config{store}, $store);
+   say "\n" . 'Saved.';
+   exit;
 }
