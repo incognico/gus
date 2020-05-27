@@ -24,7 +24,6 @@ local $SIG{INT} = \&quit;
 
 use DBI;
 use DBD::SQLite::Constants ':file_open';
-use Data::Dumper;
 use DateTime;
 use DateTime::TimeZone;
 use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
@@ -46,7 +45,8 @@ use Weather::METNO;
 use YAML::Tiny qw(LoadFile DumpFile);
 
 $ua->agent( 'Mozilla/5.0' );
-$ua->timeout( 6 );
+$ua->timeout( 3 );
+$ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my $self;
 my ($store, $storechanged, $lastmap, $steamidmap) = ({}, 0, '', {});
@@ -64,16 +64,17 @@ my $config = {
    geo          => $THISDIR . '/GeoLite2-City.mmdb',
    store        => $THISDIR . '/.store.yml',
    omdbapikey   => ,
+   aqiapikey    => '',
 
    discord => {
+      guild_id   => 458323696910598165,
       linkchan   => 458683388887302155,
       mainchan   => 458323696910598167,
-      wufluchan  => 673626913864155187,
       nsfwchan   => 541343127550558228,
       ayayachan  => 459345843942588427,
       spamchan   => 512991515744665600,
-      nocmdchans => [706113584626663475, 610862900357234698, 673626913864155187, 698803767512006677],
-      client_id  => ,
+      nocmdchans => [706113584626663475, 610862900357234698, 698803767512006677],
+      client_id  => 393059875871260672,
       owner_id   => 373912992758235148,
       ver_role   => 712296542211670088,
    }
@@ -175,6 +176,8 @@ my $filestream = IO::Async::FileStream->new(
 
    on_read => sub ($self, $buffref, $)
    {
+      return unless ($discord->connected);
+
       while ( $$buffref =~ s/^(.*\n)// )
       {
          my $line = decode_utf8_lax($1);
@@ -272,7 +275,8 @@ my $filestream = IO::Async::FileStream->new(
             $discord->send_message( $$config{discord}{linkchan}, $message );
          }
       }
-      return 0;
+
+      return;
    }
 );
 
@@ -597,8 +601,8 @@ sub discord_on_message_create
                $storechanged = 1;
             }
 
-
             my $w = Weather::METNO->new(lat => $lat, lon => $lon, alt => $alt, lang => 'en', uid => '<nico@lifeisbug.com>');
+            #my ($aqi_num, $aqi_txt) = aqi_by_coords($lat, $lon);
 
             my $symboltype = 'png';
             my $symbolurl  = 'https://distfiles.lifeisabug.com/metno/' . $symboltype;
@@ -614,12 +618,13 @@ sub discord_on_message_create
                    'url'      => sprintf('https://www.google.com/maps/@%f,%f,13z', $lat, $lon),
                    'icon_url' => sprintf('https://www.countryflags.io/%s/flat/64.png', $flg)
                 },
+                #'description' => sprintf('**%s**%s', $w->symbol_txt, (defined $aqi_num ? ' (Air quality: ' . $aqi_txt . ')' : '')),
                 'description' => sprintf('**%s**', $w->symbol_txt),
                 'thumbnail' => {
                    'url'    => sprintf('%s/%s.%s', $symbolurl, $w->symbol, $symboltype),
                 },
                 'footer' => {
-                   'text' => sprintf('Elevation: %dm (%dft) / Local time: %s', int($alt), int($alt * 3.2808), DateTime->now(time_zone => $tz)->strftime('%R')),
+                   'text' => sprintf('Elevation: %dm (%dft) / Local time: %s / Forecast for: %s-%s', int($alt), int($alt * 3.2808), DateTime->now(time_zone => $tz)->strftime('%R'),  DateTime->from_epoch(epoch => ($w->forecast_time), time_zone => $tz)->strftime('%R'), DateTime->from_epoch(epoch => $w->forecast_time+3600, time_zone => $tz)->strftime('%R')),
                 },
                 'fields' => [
                  {
@@ -639,7 +644,7 @@ sub discord_on_message_create
                  },
                  {
                     'name'   => 'Wind',
-                    'value'  => sprintf('%s from %s', $w->windspeed_bft_txt, $w->windfrom_dir),
+                    'value'  => sprintf('%s, %.2g m/s from %s', $w->windspeed_bft_txt, $w->windspeed_ms, $w->windfrom_dir),
                     'inline' => \1,
                  },
                  {
@@ -678,8 +683,8 @@ sub discord_on_message_create
             }
 
             my $neko = "https://nekobot.xyz/api/image?type=$type";
-            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
-            my $r = $ua->get( $neko, 'Content-Type' => 'application/json' );
+            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 3 );
+            my $r = $ua->get( $neko, 'Content-Type' => 'application/json', 'Accept-Encoding' => HTTP::Message::decodable );
             unless ( $r->is_success )
             {
                r_pepe( $channel, $msgid );
@@ -700,9 +705,9 @@ sub discord_on_message_create
          {
             my $input = $1;
             my $query = uri_escape( $input );
-            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
+            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 3 );
             $ua->agent( ssl_opts => { verify_hostname => 0 } );
-            my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json' );
+            my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json', 'Accept-Encoding' => HTTP::Message::decodable );
             unless ( $r->is_success )
             {
                r_pepe( $channel, $msgid );
@@ -735,138 +740,6 @@ sub discord_on_message_create
                r_pepe( $channel, $msgid );
             }
          }
-         elsif ( $msg =~ /^!(ncov|waiflu|wuflu|virus|corona)/i && $channel eq $$config{discord}{wufluchan} )
-         {
-            my $ncov = 'https://raw.githubusercontent.com/montanaflynn/covid-19/master/data/current.json';
-            my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
-            my $r = $ua->get( $ncov, 'Content-Type' => 'application/json' );
-            unless ( $r->is_success )
-            {
-               r_pepe( $channel, $msgid );
-               return;
-            }
-            my $i = decode_json ( encode_utf8_lax($r->decoded_content) );
-
-            if ( defined $$i{global} )
-            {
-               my ($confirmed, $deaths, $recovered, $updated) = (0, 0, 0, 0);
-
-               for ( keys $$i{global}->%* )
-               {
-                  $confirmed += $$i{global}{$_}{confirmed};
-                  $deaths    += $$i{global}{$_}{deaths};
-                  $recovered += $$i{global}{$_}{recovered};
-                  $updated    = $$i{global}{$_}{updated} if ( $$i{global}{$_}{updated} > $updated );
-               }
-
-               my $embed = {
-                  'color' => '15158332',
-                  'provider' => {
-                     'name' => 'Berliner Morgenpost',
-                     'url' => 'https://interaktiv.morgenpost.de/corona-virus-karte-infektionen-deutschland-weltweit/',
-                   },
-                   'title' => '2019-nCoV / SARS-CoV-2 / COVID-19',
-                   'url' => 'https://bnonews.com/index.php/2020/02/the-latest-coronavirus-cases/',
-                   'thumbnail' => {
-                      'url' => 'https://cdn.discordapp.com/attachments/673626913864155187/677160782844133386/e1epICE.png',
-                   },
-                   'footer' => {
-                      'text' => 'Last updated ' . duration( time-substr($updated, 0, -3) ) . ' ago.',
-                   },
-                   'fields' => [
-                    {
-                       'name'   => ':earth_africa: **Worldwide**',
-                       'value'  => "**Infected:** $confirmed (**Currently:** " . ($confirmed-$deaths-$recovered) . ") **Deaths:** $deaths (" . sprintf('%.2f', ($deaths/$confirmed)*100) . "%) **Recovered:** $recovered",
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_us: **United States of America**',
-                       'value'  => "**I:** $$i{global}{'United States'}{confirmed} (**C:** " . ($$i{global}{'United States'}{confirmed}-$$i{global}{'United States'}{deaths}-$$i{global}{'United States'}{recovered}) . ") **D:** $$i{global}{'United States'}{deaths} (" . sprintf('%.2f', ($$i{global}{'United States'}{deaths}/$$i{global}{'United States'}{confirmed})*100) . "%) **R:** $$i{global}{'United States'}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_ru: **Russia**',
-                       'value'  => "**I:** $$i{global}{Russia}{confirmed} (**C:** " . ($$i{global}{Russia}{confirmed}-$$i{global}{Russia}{deaths}-$$i{global}{Russia}{recovered}) . ") **D:** $$i{global}{Russia}{deaths} (" . sprintf('%.2f', ($$i{global}{Russia}{deaths}/$$i{global}{Russia}{confirmed})*100) . "%) **R:** $$i{global}{Russia}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_br: **Brazil**',
-                       'value'  => "**I:** $$i{global}{Brazil}{confirmed} (**C:** " . ($$i{global}{Brazil}{confirmed}-$$i{global}{Brazil}{deaths}-$$i{global}{Brazil}{recovered}) . ") **D:** $$i{global}{Brazil}{deaths} (" . sprintf('%.2f', ($$i{global}{Brazil}{deaths}/$$i{global}{Brazil}{confirmed})*100) . "%) **R:** $$i{global}{Brazil}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_es: **Spain**',
-                       'value'  => "**I:** $$i{global}{Spain}{confirmed} (**C:** " . ($$i{global}{Spain}{confirmed}-$$i{global}{Spain}{deaths}-$$i{global}{Spain}{recovered}) . ") **D:** $$i{global}{Spain}{deaths} (" . sprintf('%.2f', ($$i{global}{Spain}{deaths}/$$i{global}{Spain}{confirmed})*100) . "%) **R:** $$i{global}{Spain}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_gb: **United Kingdom**',
-                       'value'  => "**I:** $$i{global}{'United Kingdom'}{confirmed} (**C:** " . ($$i{global}{'United Kingdom'}{confirmed}-$$i{global}{'United Kingdom'}{deaths}-$$i{global}{'United Kingdom'}{recovered}) . ") **D:** $$i{global}{'United Kingdom'}{deaths} (" . sprintf('%.2f', ($$i{global}{'United Kingdom'}{deaths}/$$i{global}{'United Kingdom'}{confirmed})*100) . "%) **R:** $$i{global}{'United Kingdom'}{recovered}",
-                       'inline' => \1,
-                    },
-                    {
-                       'name'   => ':flag_it: **Italy**',
-                       'value'  => "**I:** $$i{global}{Italy}{confirmed} (**C:** " . ($$i{global}{Italy}{confirmed}-$$i{global}{Italy}{deaths}-$$i{global}{Italy}{recovered}) . ") **D:** $$i{global}{Italy}{deaths} (" . sprintf('%.2f', ($$i{global}{Italy}{deaths}/$$i{global}{Italy}{confirmed})*100) . "%) **R:** $$i{global}{Italy}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_de: **Germany**',
-                       'value'  => "**I:** $$i{global}{Germany}{confirmed} (**C:** " . ($$i{global}{Germany}{confirmed}-$$i{global}{Germany}{deaths}-$$i{global}{Germany}{recovered}) . ") **D:** $$i{global}{Germany}{deaths} (" . sprintf('%.2f', ($$i{global}{Germany}{deaths}/$$i{global}{Germany}{confirmed})*100) . "%) **R:** $$i{global}{Germany}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_tr: **Turkey**',
-                       'value'  => "**I:** $$i{global}{Turkey}{confirmed} (**C:** " . ($$i{global}{Turkey}{confirmed}-$$i{global}{Turkey}{deaths}-$$i{global}{Turkey}{recovered}) . ") **D:** $$i{global}{Turkey}{deaths} (" . sprintf('%.2f', ($$i{global}{Turkey}{deaths}/$$i{global}{Turkey}{confirmed})*100) . "%) **R:** $$i{global}{Turkey}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_fr: **France**',
-                       'value'  => "**I:** $$i{global}{France}{confirmed} (**C:** " . ($$i{global}{France}{confirmed}-$$i{global}{France}{deaths}-$$i{global}{France}{recovered}) . ") **D:** $$i{global}{France}{deaths} (" . sprintf('%.2f', ($$i{global}{France}{deaths}/$$i{global}{France}{confirmed})*100) . "%) **R:** $$i{global}{France}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_ir: **Iran**',
-                       'value'  => "**I:** $$i{global}{Iran}{confirmed} (**C:** " . ($$i{global}{Iran}{confirmed}-$$i{global}{Iran}{deaths}-$$i{global}{Iran}{recovered}) . ") **D:** $$i{global}{Iran}{deaths} (" . sprintf('%.2f', ($$i{global}{Iran}{deaths}/$$i{global}{Iran}{confirmed})*100) . "%) **R:** $$i{global}{Iran}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_in: **India**',
-                       'value'  => "**I:** $$i{global}{India}{confirmed} (**C:** " . ($$i{global}{India}{confirmed}-$$i{global}{India}{deaths}-$$i{global}{India}{recovered}) . ") **D:** $$i{global}{India}{deaths} (" . sprintf('%.2f', ($$i{global}{India}{deaths}/$$i{global}{India}{confirmed})*100) . "%) **R:** $$i{global}{India}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_pe: **Peru**',
-                       'value'  => "**I:** $$i{global}{Peru}{confirmed} (**C:** " . ($$i{global}{Peru}{confirmed}-$$i{global}{Peru}{deaths}-$$i{global}{Peru}{recovered}) . ") **D:** $$i{global}{Peru}{deaths} (" . sprintf('%.2f', ($$i{global}{Peru}{deaths}/$$i{global}{Peru}{confirmed})*100) . "%) **R:** $$i{global}{Peru}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_ca: **Canada**',
-                       'value'  => "**I:** $$i{global}{Canada}{confirmed} (**C:** " . ($$i{global}{Canada}{confirmed}-$$i{global}{Canada}{deaths}-$$i{global}{Canada}{recovered}) . ") **D:** $$i{global}{Canada}{deaths} (" . sprintf('%.2f', ($$i{global}{Canada}{deaths}/$$i{global}{Canada}{confirmed})*100) . "%) **R:** $$i{global}{Canada}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_sa: **Saudi Arabia**',
-                       'value'  => "**I:** $$i{global}{'Saudi Arabia'}{confirmed} (**C:** " . ($$i{global}{'Saudi Arabia'}{confirmed}-$$i{global}{'Saudi Arabia'}{deaths}-$$i{global}{'Saudi Arabia'}{recovered}) . ") **D:** $$i{global}{'Saudi Arabia'}{deaths} (" . sprintf('%.2f', ($$i{global}{'Saudi Arabia'}{deaths}/$$i{global}{'Saudi Arabia'}{confirmed})*100) . "%) **R:** $$i{global}{'Saudi Arabia'}{recovered}",
-                       'inline' => \0,
-                    },
-                    {
-                       'name'   => ':flag_mx: **Mexico**',
-                       'value'  => "**I:** $$i{global}{Mexico}{confirmed} (**C:** " . ($$i{global}{Mexico}{confirmed}-$$i{global}{Mexico}{deaths}-$$i{global}{Mexico}{recovered}) . ") **D:** $$i{global}{Mexico}{deaths} (" . sprintf('%.2f', ($$i{global}{Mexico}{deaths}/$$i{global}{Mexico}{confirmed})*100) . "%) **R:** $$i{global}{Mexico}{recovered}",
-                       'inline' => \0,
-                    },
-                    ],
-               };
-               my $message = {
-                  'content' => '',
-                  'embed' => $embed,
-               };
-
-               $discord->send_message( $channel, $message );
-            }
-            else {
-               r_pepe( $channel, $msgid );
-            }
-         }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my @args = split(' ', $1);
@@ -883,7 +756,7 @@ sub discord_on_message_create
             $url .= '&y=' . $year if ($year);
 
             my $ua = LWP::UserAgent->new( agent => 'Mozilla/5.0', timeout => 6 );
-            my $r = $ua->get( $url, 'Content-Type' => 'application/json' );
+            my $r = $ua->get( $url, 'Content-Type' => 'application/json', 'Accept-Encoding' => HTTP::Message::decodable );
             unless ( $r->is_success )
             {
                r_pepe( $channel, $msgid );
@@ -1021,21 +894,16 @@ sub discord_on_message_create
                         $discord->send_message( $channel, "<\@$id> You have no Steam ID set, use `!set steamid STEAM_0:X:XXXXXX` first." );
                         return;
                      }
-
-                     if ($value ~~ ['0', '1'])
+                     elsif ($value ~~ ['0', '1'])
                      {
                         $$store{users}{$id}{linknick} = $3;
                         r_green( $channel, $msgid );
-                     }
-                     else
-                     {
-                        r_what( $channel, $msgid );
+                        return;
                      }
                   }
-                  else
-                  {
-                     r_what( $channel, $msgid );
-                  }
+
+                  r_what( $channel, $msgid );
+                  return;
                }
                else
                {
@@ -1333,6 +1201,55 @@ sub duration ($sec)
             ($gmt[7] ? ($gmt[5]                       ? ' ' : '').$gmt[7].'d' : '').
             ($gmt[2] ? ($gmt[5] || $gmt[7]            ? ' ' : '').$gmt[2].'h' : '').
             ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2] ? ' ' : '').$gmt[1].'m' : '');
+}
+
+sub aqi_by_coords ($lat, $lon)
+{
+   my $json = get('https://api.waqi.info/feed/geo:' . $lat . ';' . $lon . '/?token=' . $$config{'aqiapikey'});
+
+   if ($json)
+   {
+      my $aqidata = decode_json($json);
+
+      if ( $$aqidata{status} eq 'ok' )
+      {
+         my $i;
+         my @txt = ('Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous');
+         my $aqi = $$aqidata{data}{aqi};
+
+         given ( $aqi )
+         {
+            when ( $_ < 50 )
+            {
+               $i = 0;
+            }
+            when ( $_ < 100 )
+            {
+               $i = 1;
+            }
+            when ( $_ < 150 )
+            {
+               $i = 2;
+            }
+            when ( $_ < 200 )
+            {
+               $i = 3;
+            }
+            when ( $_ < 300 )
+            {
+               $i = 4;
+            }
+            when ( $_ >= 300 )
+            {
+               $i = 5;
+            }
+         }
+
+         return ($aqi, $txt[$i]);
+      }
+   }
+
+   return;
 }
 
 sub elev_by_coords ($lat, $lon)
