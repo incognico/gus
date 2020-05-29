@@ -12,6 +12,7 @@ use v5.28.0;
 use utf8;
 use strict;
 use warnings;
+use autodie ':all';
 
 use lib '/etc/perl';
 
@@ -162,7 +163,7 @@ discord_on_message_create();
 
 $discord->init();
 
-open my $fh, '<', $$config{'fromsven'} or die;
+open my $fh, '<', $$config{'fromsven'};
 
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
@@ -254,14 +255,15 @@ my $filestream = IO::Async::FileStream->new(
             }
 
             my $final;
-            if (exists $$steamidmap{$steamid} && defined $$store{users}{$$steamidmap{$steamid}}{linknick} && $$store{users}{$$steamidmap{$steamid}}{linknick} > 0 )
-            {
-               $final = "<\@$$steamidmap{$steamid}>";
-            }
-            else
-            {
+            # Discord needs to fix the @invalid-user bugs first
+            #if (exists $$steamidmap{$steamid} && defined $$store{users}{$$steamidmap{$steamid}}{linknick} && $$store{users}{$$steamidmap{$steamid}}{linknick} > 0 )
+            #{
+            #   $final = "<\@$$steamidmap{$steamid}>";
+            #}
+            #else
+            #{
                $final = "`$nick`";
-            }
+            #}
             $final   .= "  $msg";
 
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
@@ -295,37 +297,34 @@ my $timer = IO::Async::Timer::Periodic->new(
 
       return unless (defined $$store{reminders} && $discord->connected);
 
-      $$store{reminders}->@* = grep { defined } map {
-         if ( $_->{time} && $_->{time} <= time)
+      while (my ($k, $v) = each $$store{reminders}->%*)
+      {
+         if (defined $$v{time} && $$v{time} <= time)
          {
-            my $allowed = [ $_->{owner} ];
+            my @allowed;
 
-            if ($_->{target} && $_->{target} =~ /^<@!?(\d+)>$/)
+            if ($$v{target} =~ /^<@!?(\d+)>$/)
             {
-               if ($1 != $_->{owner})
+               if ($1 != $$v{owner})
                {
-                  shift($allowed->@*);
-                  push($allowed->@*, $1);
-
-                  $_->{text} .= " (reminded by <\@$_->{owner}>)";
+                  push(@allowed, $1);
+                  $$v{text} .= " (reminded by <\@$$v{owner}>)";
                }
             }
 
+            push(@allowed, $$v{owner}) unless @allowed;
+
             my $message = {
-               'content' => "$_->{target} $_->{text}",
-               'allowed_mentions' => { users => $allowed },
+               'content' => $$v{target} . ' ' . $$v{text},
+               'allowed_mentions' => { users => [@allowed] },
             };
 
-            $discord->send_message( $_->{chan}, $message );
+            $discord->send_message( $$v{chan}, $message );
 
             $storechanged = 1;
-            undef $_;
+            delete $$store{reminders}{$k};
          }
-         else
-         {
-            $_
-         }
-      } $$store{reminders}->@*;
+      }
    },
 );
 $timer->start;
@@ -384,7 +383,7 @@ sub discord_on_message_create
 
             say localtime(time) . " <- <$nick> $msg";
 
-            open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'}) or die;
+            open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'});
             say $tosvenfh "(DISCORD) $nick: $msg";
             close $tosvenfh;
          }
@@ -925,30 +924,30 @@ sub discord_on_message_create
                }
             }
          }
-         elsif ( $msg =~ /^\.rem (total|list|delete) ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) && $id == $$config{discord}{owner_id} )
+         elsif ( $msg =~ /^\.rem (total|list|del(?:ete)?) ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) && $id == $$config{discord}{owner_id} )
          {
-            unless (defined $$store{reminders})
+            unless (defined $$store{reminders} && scalar(keys $$store{reminders}->%*))
             {
-               $discord->send_message( $channel, '`0 reminders`' );
+               $discord->send_message( $channel, '`0`' );
                return;
             }
 
             if ($1 eq 'total')
             {
-               $discord->send_message( $channel, '`' . scalar($$store{reminders}->@*) . '`' );
+               $discord->send_message( $channel, '`' . scalar(keys $$store{reminders}->%*) . '`' );
             }
             elsif ($1 eq 'list')
             {
                my $text = "id :: chan :: owner :: target :: text :: at (utc) :: in\n";
                $text   .= "===================================\n";
 
-               for ($$store{reminders}->@*)
+               for (sort keys $$store{reminders}->%*)
                {
-                  next unless (defined $_);
+                  next unless (defined $$store{reminders}{$_});
 
-                  $text .= "$_->{id} :: <#$_->{chan}> :: <\@$_->{owner}> :: " . ($_->{target} =~ /<\@!?$_->{owner}>/ ? 'owner' : $_->{target})
-                        . " :: $_->{text} :: " . DateTime->from_epoch(epoch => $_->{time})->strftime('%F %R') . ' :: '
-                        . duration(($_->{time} - time) + 71) . "\n";
+                  $text .= "$_ :: <#$$store{reminders}{$_}{chan}> :: <\@$$store{reminders}{$_}{owner}> :: " . ($$store{reminders}{$_}{target} =~ /<\@!?$$store{reminders}{$_}{owner}>/ ? 'owner' : $$store{reminders}{$_}{target})
+                        . " :: $$store{reminders}{$_}{text} :: " . DateTime->from_epoch(epoch => $$store{reminders}{$_}{time})->strftime('%F %R') . ' :: '
+                        . duration(($$store{reminders}{$_}{time} - time) + 71) . "\n";
                }
 
                while ($text =~ /\G(.{0,1990}(?:.\z|\R))/sg)
@@ -961,28 +960,25 @@ sub discord_on_message_create
                   $discord->send_message( $channel, $message );
                }
             }
-            elsif ($1 eq 'delete')
+            elsif ($1 eq 'del' || $1 eq 'delete')
             {
                if ($2 && $2 =~ /(?:#|id )(\d+)/i)
                {
-                  $$store{reminders}->@* = grep { defined } map {
-                     if ($1 == $_->{id})
+                  for (keys $$store{reminders}->%*)
+                  {
+                     if ($1 == $_)
                      {
-                        r_green( $channel, $msgid );
-
+                        delete $$store{reminders}{$_};
                         $storechanged = 1;
-                        undef $_;
+
+                        r_green( $channel, $msgid );
                      }
-                     else
-                     {
-                        $_
-                     }
-                  } $$store{reminders}->@*;
+                  }
                }
             }
          }
-         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s\.]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<day>\d\d)\.(?<month>\d\d)\.(?<year>\d{4})\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
-         # TODO: make d m y all optional
+         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s\.]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<year>\d{4})-?(?<month>\d\d)-?(?<day>\d\d)\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
+         # TODO: make y m d all optional
          # TODO: random time 3h-3d when "remind me to ..."?
          {
             my $target = ( !defined $+{target} || fc($+{target}) eq fc('me') ) ? "<\@$id>" : $+{target};
@@ -1041,15 +1037,16 @@ sub discord_on_message_create
 
             $text =~ s'https?://''gmi;
 
-            push( $$store{reminders}->@*, {
-               id     => $$store{reminder_count}++,
+            $$store{reminders}{$$store{reminder_count}++} = {
+               time   => $time,
                chan   => $channel,
                owner  => $id,
                target => $target,
                text   => $text,
                added  => time,
-               time   => $time,
-            });
+            };
+
+            $storechanged = 1;
 
             r_green( $channel, $msgid );
             #$discord->send_message( $channel, '`In: '. duration($time - time) . '`' );
@@ -1288,7 +1285,8 @@ sub verify ($steamid)
 
       $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
       $discord->add_guild_member_role( $$config{discord}{guild_id}, $$store{steamidqueue}{$steamid}{discordid}, $$config{discord}{ver_role} );
-      $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted. Use `!set linknick 1` in here to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
+      #$discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted. Use `!set linknick 1` in here to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
+      $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted." );
       r_green( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid} );
 
       delete $$store{steamidqueue}{$steamid};
