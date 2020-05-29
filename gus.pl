@@ -938,6 +938,7 @@ sub discord_on_message_create
             }
             elsif ($1 eq 'list')
             {
+               # TODO: allow users to use DM for list and delete + translate to users tz
                my $text = "id :: chan :: owner :: target :: text :: at (utc) :: in\n";
                $text   .= "===================================\n";
 
@@ -947,7 +948,7 @@ sub discord_on_message_create
 
                   $text .= "$_ :: <#$$store{reminders}{$_}{chan}> :: <\@$$store{reminders}{$_}{owner}> :: " . ($$store{reminders}{$_}{target} =~ /<\@!?$$store{reminders}{$_}{owner}>/ ? 'owner' : $$store{reminders}{$_}{target})
                         . " :: $$store{reminders}{$_}{text} :: " . DateTime->from_epoch(epoch => $$store{reminders}{$_}{time})->strftime('%F %R') . ' :: '
-                        . duration(($$store{reminders}{$_}{time} - time) + 71) . "\n";
+                        . duration($$store{reminders}{$_}{time} - time) . "\n";
                }
 
                while ($text =~ /\G(.{0,1990}(?:.\z|\R))/sg)
@@ -977,7 +978,7 @@ sub discord_on_message_create
                }
             }
          }
-         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s\.]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<year>\d{4})-?(?<month>\d\d)-?(?<day>\d\d)\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
+         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s-]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<year>\d{4})-?(?<month>\d\d)-?(?<day>\d\d)\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
          # TODO: make y m d all optional
          # TODO: random time 3h-3d when "remind me to ..."?
          {
@@ -1048,8 +1049,7 @@ sub discord_on_message_create
 
             $storechanged = 1;
 
-            r_green( $channel, $msgid );
-            #$discord->send_message( $channel, '`In: '. duration($time - time) . '`' );
+            $discord->send_message( $channel, "<\@$id> <:greentick:712004372678049822> `T-Minus ". duration($time - time) . '`' );
          }
          elsif ( $msg =~ /^!time ?(.+)?/i )
          {
@@ -1194,10 +1194,12 @@ sub duration ($sec)
    my @gmt = gmtime($sec);
 
    $gmt[5] -= 70;
-   return   ($gmt[5] ?                                            $gmt[5].'y' : '').
-            ($gmt[7] ? ($gmt[5]                       ? ' ' : '').$gmt[7].'d' : '').
-            ($gmt[2] ? ($gmt[5] || $gmt[7]            ? ' ' : '').$gmt[2].'h' : '').
-            ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2] ? ' ' : '').$gmt[1].'m' : '');
+
+   return ($gmt[5] ?                                                       $gmt[5].'y' : '').
+          ($gmt[7] ? ($gmt[5]                                  ? ' ' : '').$gmt[7].'d' : '').
+          ($gmt[2] ? ($gmt[5] || $gmt[7]                       ? ' ' : '').$gmt[2].'h' : '').
+          ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2]            ? ' ' : '').$gmt[1].'m' : '').
+          ($gmt[0] ? ($gmt[5] || $gmt[7] || $gmt[2] || $gmt[1] ? ' ' : '').$gmt[0].'s' : '');
 }
 
 sub aqi_by_coords ($lat, $lon)
