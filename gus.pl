@@ -85,7 +85,6 @@ my $discord = Mojo::Discord->new(
    'version'   => '9999',
    'url'       => 'https://twlz.lifeisabug.com',
    'token'     => '',
-   'name'      => 'Gus',
    'reconnect' => 1,
    'verbose'   => 0,
    'logdir'    => "$ENV{HOME}/gus",
