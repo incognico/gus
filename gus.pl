@@ -977,7 +977,7 @@ sub discord_on_message_create
                }
             }
          }
-         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s-]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d{1,10})|(?:(?<year>\d{4})-?(?<month>\d\d)-?(?<day>\d\d)\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
+         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s-]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d+)|(?:(?<year>\d{4})-?(?<month>\d\d)-?(?<day>\d\d)\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
          # TODO: make y m d all optional
          # TODO: random time 3h-3d when "remind me to ..."?
          {
@@ -1048,7 +1048,14 @@ sub discord_on_message_create
 
             $storechanged = 1;
 
-            $discord->send_message( $channel, "<\@$id> <:greentick:712004372678049822> `T-Minus ". duration($time - time) . '`' );
+            if ($delay && $delay < 60)
+            {
+               r_green( $channel, $msgid );
+            }
+            else
+            {
+               $discord->send_message( $channel, "<\@$id> <:greentick:712004372678049822> `T-Minus ". duration($time - time) . '`' );
+            }
          }
          elsif ( $msg =~ /^!time ?(.+)?/i )
          {
