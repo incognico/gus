@@ -42,6 +42,7 @@ use Net::SRCDS::Queries;
 use Path::This '$THISDIR';
 use Term::Encoding qw(term_encoding);
 use URI::Escape;
+use URI::Title 'title';
 use Weather::METNO;
 use YAML::Tiny qw(LoadFile DumpFile);
 
@@ -68,15 +69,16 @@ my $config = {
    aqiapikey    => '',
 
    discord => {
-      guild_id   => 458323696910598165,
       linkchan   => 458683388887302155,
       mainchan   => 458323696910598167,
-      nsfwchan   => 541343127550558228,
+      mediachan  => 615139520135954453,
       ayayachan  => 459345843942588427,
-      spamchan   => 512991515744665600,
       nocmdchans => [706113584626663475, 610862900357234698, 698803767512006677],
+
       client_id  => 393059875871260672,
       owner_id   => 373912992758235148,
+      guild_id   => 458323696910598165,
+
       ver_role   => 712296542211670088,
    }
 };
@@ -86,10 +88,10 @@ my $discord = Mojo::Discord->new(
    'url'       => 'https://twlz.lifeisabug.com',
    'token'     => '',
    'reconnect' => 1,
-   'verbose'   => 0,
+   'verbose'   => 1,
    'logdir'    => "$ENV{HOME}/gus",
    'logfile'   => 'discord.log',
-   'loglevel'  => 'info',
+   'loglevel'  => 'debug',
 );
 
 my $maps = {
@@ -133,12 +135,14 @@ my $maps = {
    'th_ep3_00'            => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
    'th_escape'            => '<:KannaSpook:603856338132664321> They Hunger: Escape',
    'the_daikon_warfare1'  => ':seedling: The Daikon Warfare',
-   'tunnelvision_1'       => '<:KannaZoooming:662976056956813353> Tunnel Vision',
+   'tunnelvision_1'       => '<:KannaZooming:640195746444083200> Tunnel Vision',
    'uboa'                 => ':rice_ball: UBOA',
 };
 
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||__|\*|~|>)/;
+
+my $http_url_match_regex = qr{(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))};;
 
 ###
 
@@ -385,6 +389,11 @@ sub discord_on_message_create
             open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'});
             say $tosvenfh "(DISCORD) $nick: $msg";
             close $tosvenfh;
+         }
+         elsif ( $channel eq $$config{discord}{mainchan} && $msg =~ /($http_url_match_regex)/i )
+         {
+            my $title = title($1);
+            $discord->send_message( $channel, '`' .$title . '`') if $title;
          }
          elsif ( $msg =~ /^!player (.+)/i )
          {
@@ -665,7 +674,7 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, $message );
          }
-         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{nsfwchan} )
+         elsif ( 0 && $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{mediachan} )
          {
             my $type = defined $1 ? lc($1) : 'random';
             $type =~ s/ //g;
@@ -699,7 +708,7 @@ sub discord_on_message_create
                r_pepe( $channel, $msgid );
             }
          }
-         elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{nsfwchan} )
+         elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{mediachan} )
          {
             my $input = $1;
             my $query = uri_escape( $input );
