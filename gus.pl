@@ -393,6 +393,25 @@ sub discord_on_message_create
          elsif ( $channel eq $$config{discord}{mainchan} && $msg =~ /($http_url_match_regex)/i )
          {
             my $title = title($1);
+
+            if ($title eq 'YouTube')
+            {
+               my $content = get("https://www.youtube.com/oembed?url=$1&format=json");
+
+               return unless ( defined $content );
+
+               my $result = decode_json( $content );
+
+               if ( defined $$result{title} && $$result{title} )
+               {
+                  $title = $$result{title} if ( defined $$result{title} && $$result{title} )
+               }
+               else
+               {
+                  return;
+               }
+            }
+
             $discord->send_message( $channel, '`' .$title . '`') if $title;
          }
          elsif ( $msg =~ /^!player (.+)/i )
