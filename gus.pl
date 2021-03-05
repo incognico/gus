@@ -2,10 +2,10 @@
 
 # Gus - Discord bot for the twilightzone Sven Co-op server
 #
-# Requires https://github.com/vsTerminus/Mojo-Discord (release v3+)
+# Requires https://github.com/vsTerminus/Mojo-Discord
 # Based on https://github.com/vsTerminus/Goose
 #
-# Copyright 2017-2020, Nico R. Wohlgemuth <nico@lifeisabug.com>
+# Copyright 2017-2021, Nico R. Wohlgemuth <nico@lifeisabug.com>
 
 use v5.28.0;
 
@@ -42,7 +42,6 @@ use Net::SRCDS::Queries;
 use Path::This '$THISDIR';
 use Term::Encoding qw(term_encoding);
 use URI::Escape;
-use URI::Title 'title';
 use Weather::METNO;
 use YAML::Tiny qw(LoadFile DumpFile);
 
@@ -96,7 +95,7 @@ my $discord = Mojo::Discord->new(
 
 my $maps = {
    'asmap00'              => ':sheep: Azure Sheep',
-   'ba_tram1'             => '<:flower:458608402549964814> HL: Blue Shift',
+   'ba_tram1'             => '<:flower:772815800712560660> HL: Blue Shift',
    'bm_nightmare_a_final' => '<:scary:516921261688094720> Black Mesa Nightmare',
    'bm_sts'               => '<:sven:459617478365020203> Black Mesa Special Tactics Sector',
    'botparty'             => '<:omegalul:458685801706815489> Bot Party',
@@ -108,10 +107,10 @@ my $maps = {
    'g-ara1'               => '<:nani:603508663562272788> G-ARA',
    'hidoi_map1'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
    'hidoi_map2'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
-   'hl_c00'               => '<:flower:458608402549964814> Half-Life',
+   'hl_c00'               => '<:flower:772815800712560660> Half-Life',
    'island'               => ':island: Comfy, island',
    'mustard_b'            => ':hotdog: Mustard Factory',
-   'of0a0'                => '<:flower:458608402549964814> HL: Opposing Force',
+   'of0a0'                => '<:flower:772815800712560660> HL: Opposing Force',
    'of_utbm'              => ':new_moon: OP4: Under the Black Moon',
    'otokotati_no_kouzan'  => ':hammer_pick: Otokotati No Kouzan',
    'pizza_ya_san1'        => ':pizza: Pizza Ya San: 1',
@@ -119,14 +118,14 @@ my $maps = {
    'po_c1m1'              => ':regional_indicator_p: Poke 646',
    'projectg1'            => ':dromedary_camel: Project: Guilty',
    'pv_c1m1'              => ':regional_indicator_v: Poke 646: Vendetta',
-   'quad_f'               => '<:blanketwrap:712012386743222313> Quad',
-   'ra_quad'              => '<:blanketwrap:712012386743222313> Real Adrenaline Quad',
+   'quad_f'               => '<:blanky:805497042612912158> Quad',
+   'ra_quad'              => '<:blanky:805497042612912158> Real Adrenaline Quad',
    'ressya_no_tabi'       => ':train2::camera_with_flash: Ressya No Tabi',
    'restriction01'        => ':radioactive: Restriction',
    'road_to_shinnen'      => ':shinto_shrine: Oh god, oh no, Road to Shinnen',
-   'rust_islands_b9'      => '<:eecat:460442390457483274> R U S T',
-   'rust_legacy_b9'       => '<:eecat:460442390457483274> (legacy) R U S T',
-   'rust_mini_b9'         => '<:eecat:460442390457483274> (mini) R U S T',
+   'rust_islands'         => '<:eecat:460442390457483274> R U S T',
+   'rust_legacy'          => '<:eecat:460442390457483274> (legacy) R U S T',
+   'rust_mini'            => '<:eecat:460442390457483274> (mini) R U S T',
    'sa13'                 => '<:KannaSuicide:603609334080995338> SA13',
    'sc_royals1'           => ':eye: Royals',
    'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
@@ -141,8 +140,6 @@ my $maps = {
 
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||__|\*|~|>)/;
-
-my $http_url_match_regex = qr{(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))};;
 
 ###
 
@@ -243,13 +240,14 @@ my $filestream = IO::Async::FileStream->new(
             my $steamid = $3;
             my $msg     = $4;
 
+            return if ($msg =~ /^ ?\.vc /);
+
             $nick =~ s/`//g;
 
             $msg =~ s/(\s|\R)+/ /g;
             $msg =~ s/\@+everyone/everyone/g;
             $msg =~ s/\@+here/here/g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
-
 
             if ($msg =~ /^!verify/ )
             {
@@ -294,7 +292,7 @@ my $timer = IO::Async::Timer::Periodic->new(
 
       for (keys $$store{steamidqueue}->%*)
       {
-         delete $$store{steamidqueue}{$_} if (exists $$store{steamidqueue}{$_}{ts} && ($$store{steamidqueue}{$_}{ts} + 3600) < time);
+         delete $$store{steamidqueue}{$_} unless (exists $$store{steamidqueue}{$_}{ts} && (($$store{steamidqueue}{$_}{ts} + 3600) > time));
          $storechanged = 1;
       }
 
@@ -390,30 +388,6 @@ sub discord_on_message_create
             say $tosvenfh "(DISCORD) $nick: $msg";
             close $tosvenfh;
          }
-         elsif ( $channel eq $$config{discord}{mainchan} && $msg =~ /($http_url_match_regex)/i )
-         {
-            my $title = title($1);
-
-            if ($title eq 'YouTube')
-            {
-               my $content = get("https://www.youtube.com/oembed?url=$1&format=json");
-
-               return unless ( defined $content );
-
-               my $result = decode_json( $content );
-
-               if ( defined $$result{title} && $$result{title} )
-               {
-                  $title = $$result{title} if ( defined $$result{title} && $$result{title} )
-               }
-               else
-               {
-                  return;
-               }
-            }
-
-            $discord->send_message( $channel, '`' .$title . '`') if $title;
-         }
          elsif ( $msg =~ /^!player (.+)/i )
          {
             my $param = $1;
@@ -499,12 +473,17 @@ sub discord_on_message_create
                     },
                     {
                        'name'   => 'Country',
-                       'value'  => lc($r->[11]) eq 'se' ? ':gay_pride_flag:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':',
+                       'value'  => lc($r->[11]) eq 'us' ? ':gay_pride_flag:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':',
                        'inline' => \1,
                     },
                     {
                        'name'   => 'Time on TWLZ',
                        'value' => $r->[14] < 1 ? '-' : duration( $r->[14]*30 ) . ' +',
+                       'inline' => \1,
+                    },
+                    {
+                       'name'   => 'First Seen',
+                       'value'  => defined $r->[17] ? $r->[17] : 'Unknown',
                        'inline' => \1,
                     },
                     {
@@ -693,7 +672,7 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, $message );
          }
-         elsif ( 0 && $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{mediachan} )
+         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{vipchan} )
          {
             my $type = defined $1 ? lc($1) : 'random';
             $type =~ s/ //g;
@@ -889,7 +868,7 @@ sub discord_on_message_create
                   $value =~ s/\N{U+1F44D}/:1:/g;
                   $value =~ s/STEAM_1:/STEAM_0:/;
 
-                  if ( $value =~ /STEAM_(0:[01]:[0-9]+)/n && !(exists $$store{steamidqueue}{$value}{$type} || exists $$steamidmap{$value}) )
+                  if ( $value =~ /STEAM_(0:[01]:[0-9]+)/n && !(exists $$store{steamidqueue}{$value} || exists $$steamidmap{$value}) )
                   {
                      $$store{steamidqueue}{$value}{$type}     = $value;
                      $$store{steamidqueue}{$value}{discordid} = $id;
@@ -901,7 +880,7 @@ sub discord_on_message_create
                      $discord->create_reaction( $channel, $msgid, "\N{U+23F3}" );
                      $discord->send_message( $channel, "<\@$id> Within the next hour, join the twlz Sven Co-op server and type `!verify` in chat to verify your Steam ID." );
                   }
-                  elsif ( exists $$store{steamidqueue}{$value}{$type} )
+                  elsif ( exists $$store{steamidqueue}{$value} )
                   {
                      $discord->create_reaction( $channel, $msgid, "\N{U+23F3}" );
                   }
@@ -1076,13 +1055,13 @@ sub discord_on_message_create
 
             $storechanged = 1;
 
-            if ($delay && $delay < 60)
+            if ($delay && $delay <= 360)
             {
                r_green( $channel, $msgid );
             }
             else
             {
-               $discord->send_message( $channel, "<\@$id> <:greentick:712004372678049822> `T-Minus ". duration($time - time) . '`' );
+               $discord->send_message( $channel, "<\@$id> <:greentick:712004372678049822> `T-minus ". duration($time - time) . '`' );
             }
          }
          elsif ( $msg =~ /^!time ?(.+)?/i )
@@ -1321,8 +1300,8 @@ sub verify ($steamid)
 
       $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
       $discord->add_guild_member_role( $$config{discord}{guild_id}, $$store{steamidqueue}{$steamid}{discordid}, $$config{discord}{ver_role} );
-      #$discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted. Use `!set linknick 1` in here to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
-      $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! Chat relay access granted." );
+      #$discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! VIP status granted. Use `!set linknick 1` in here to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
+      $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! VIP status granted." );
       r_green( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid} );
 
       delete $$store{steamidqueue}{$steamid};
