@@ -50,7 +50,7 @@ $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my $self;
-my ($store, $storechanged, $lastmap, $steamidmap) = ({}, 0, '', {});
+my ($store, $storechanged, $lastmap, $maptime) = ({}, 0, '', 0);
 
 my $config = {
    game         => 'Sven Co-op',
@@ -153,11 +153,6 @@ my $dbh = DBI->connect("dbi:SQLite:$$config{'db'}", undef, undef, {
 DumpFile($$config{store}, $store) unless (-f $$config{store});
 $store = LoadFile($$config{store});
 
-for (keys $$store{users}->%*)
-{
-   $$steamidmap{$$store{users}{$_}{steamid}} = $_ if (exists $$store{users}{$_}{steamid});
-}
-
 discord_on_ready();
 discord_on_message_create();
 
@@ -168,7 +163,7 @@ open my $fh, '<', $$config{'fromsven'};
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
 
-   interval => 1.5,
+   interval => 0.5,
 
    on_initial => sub ($self, $)
    {
@@ -185,13 +180,30 @@ my $filestream = IO::Async::FileStream->new(
 
          chomp( $line );
 
-         if ( $line =~ /^status .+ [0-9][0-9]?$/ )
+         if ( $line =~ /^mapend .+ [0-9][0-9]?$/ )
+         {
+            say localtime(time) . " -> mapend: $line";
+
+            my @data = split( ' ', $line );
+
+            return if ( $data[2] eq '0' );
+
+            my ($after, $sec) = ('', 0);
+            $sec   = time - $maptime if $maptime;
+            $after = ' after `' . duration($sec) . '`' if ($sec > 60);
+            $maptime = 0;
+
+            $discord->send_message( $$config{discord}{linkchan}, "<:wow:516921262199799818> Map `$data[1]` ended$after, going intermission..." );
+         }
+         elsif ( $line =~ /^status .+ [0-9][0-9]?$/ )
          {
             say localtime(time) . " -> status: $line";
 
             my @data = split( ' ', $line );
 
             $discord->status_update( { 'name' => 'SC on ' . $data[1], type => 0 } );
+
+            $maptime = time;
 
             return if ( $data[2] eq '0' );
 
@@ -232,11 +244,11 @@ my $filestream = IO::Async::FileStream->new(
          }
          else
          {
-            $line =~ /<(.+?)><(.+?):.+?><(.+?)> (.+)/;
+            $line =~ /<(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
             say localtime(time) . " -> $line";
 
             my $nick    = $1;
-            my $r       = $gi->record_for_address($2);
+            my $r       = $gi->record_for_address($2 ? $2 : 0);
             my $steamid = $3;
             my $msg     = $4;
 
@@ -255,23 +267,12 @@ my $filestream = IO::Async::FileStream->new(
                 return;
             }
 
-            my $final;
-            # Discord needs to fix the @invalid-user bugs first
-            #if (exists $$steamidmap{$steamid} && defined $$store{users}{$$steamidmap{$steamid}}{linknick} && $$store{users}{$$steamidmap{$steamid}}{linknick} > 0 )
-            #{
-            #   $final = "<\@$$steamidmap{$steamid}>";
-            #}
-            #else
-            #{
-               $final = "`$nick`";
-            #}
-            $final   .= "  $msg";
-
+            my $final = "`$nick`  $msg";
             $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
             my $message = {
-               content => ':flag_' . ($r->{country}{iso_code} ? lc($r->{country}{iso_code}) : 'white') . ': ' . $final,
+               content => ':' . ($r->{country}{iso_code} ? ('flag_' . lc($r->{country}{iso_code})) : 'gay_pride_flag') . ': ' . $final,
                allowed_mentions => { parse => [] },
             };
 
@@ -401,23 +402,6 @@ sub discord_on_message_create
                $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
                @bind = ( "$1" );
             }
-#            elsif ( $param =~ /^<@!?(\d+)>/ )
-#            {
-#               my $request;
-#
-#               if ( defined $$store{users}{$1}{steamid} )
-#               {
-#                  $request = $1 if ( $$store{users}{$1}{steamid} =~ /^STEAM_(0:[01]:[0-9]+)$/ );
-#               }
-#               else
-#               {
-#                  $discord->send_message( $channel, 'The requested user must set his Steam ID by using `!set steamid STEAM_0:X:XXXXXX` first.' );
-#                  return;
-#               }
-#
-#               $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
-#               @bind = ( "$request" );
-#            }
             else
             {
                $stmt = "SELECT * FROM stats WHERE name LIKE ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
@@ -840,7 +824,7 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, join '', @x );
          }
-         elsif ( $msg =~ /^!(set|get) (tz|steamid|linknick) ?(.*)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         elsif ( $msg =~ /^!(set|get) (tz|steamid) ?(.*)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             my $action = $1;
             my $type   = $2;
@@ -868,7 +852,7 @@ sub discord_on_message_create
                   $value =~ s/\N{U+1F44D}/:1:/g;
                   $value =~ s/STEAM_1:/STEAM_0:/;
 
-                  if ( $value =~ /STEAM_(0:[01]:[0-9]+)/n && !(exists $$store{steamidqueue}{$value} || exists $$steamidmap{$value}) )
+                  if ( $value =~ /STEAM_(0:[01]:[0-9]+)/n && !exists $$store{steamidqueue}{$value} )
                   {
                      $$store{steamidqueue}{$value}{$type}     = $value;
                      $$store{steamidqueue}{$value}{discordid} = $id;
@@ -888,27 +872,6 @@ sub discord_on_message_create
                   {
                      r_red( $channel, $msgid );
                   }
-               }
-               elsif ($type eq 'linknick')
-               {
-                  if (defined $value)
-                  {
-                     unless (defined $$store{users}{$id}{steamid})
-                     {
-                        r_red( $channel, $msgid );
-                        $discord->send_message( $channel, "<\@$id> You have no Steam ID set, use `!set steamid STEAM_0:X:XXXXXX` first." );
-                        return;
-                     }
-                     elsif ($value ~~ ['0', '1'])
-                     {
-                        $$store{users}{$id}{linknick} = $3;
-                        r_green( $channel, $msgid );
-                        return;
-                     }
-                  }
-
-                  r_what( $channel, $msgid );
-                  return;
                }
                else
                {
@@ -1294,13 +1257,8 @@ sub verify ($steamid)
 {
    if ( defined $$store{steamidqueue}{$steamid} )
    {
-      $$store{users}{$$store{steamidqueue}{$steamid}{discordid}}{steamid} = $steamid;
-      $$steamidmap{$steamid} = $$store{steamidqueue}{$steamid}{discordid};
-      $storechanged = 1;
-
       $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
       $discord->add_guild_member_role( $$config{discord}{guild_id}, $$store{steamidqueue}{$steamid}{discordid}, $$config{discord}{ver_role} );
-      #$discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! VIP status granted. Use `!set linknick 1` in here to show your in-game nick in <#$$config{discord}{linkchan}> as your Discord nickname." );
       $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! VIP status granted." );
       r_green( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid} );
 
