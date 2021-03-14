@@ -193,7 +193,7 @@ my $filestream = IO::Async::FileStream->new(
             $after = ' after `' . duration($sec) . '`' if ($sec > 60);
             $maptime = 0;
 
-            $discord->send_message( $$config{discord}{linkchan}, "<:wow:516921262199799818> Map `$data[1]` ended$after, going intermission..." );
+            $discord->send_message( $$config{discord}{linkchan}, ":checkered_flag: Map `$data[1]` ended$after" );
          }
          elsif ( $line =~ /^status .+ [0-9][0-9]?$/ )
          {
