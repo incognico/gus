@@ -71,6 +71,7 @@ my $config = {
       linkchan   => 458683388887302155,
       mainchan   => 458323696910598167,
       mediachan  => 615139520135954453,
+      vipchan    => 748823540496597013,
       ayayachan  => 459345843942588427,
       nocmdchans => [706113584626663475, 610862900357234698, 698803767512006677],
 
@@ -182,7 +183,7 @@ my $filestream = IO::Async::FileStream->new(
 
          if ( $line =~ /^mapend .+ [0-9][0-9]?$/ )
          {
-            say localtime(time) . " -> mapend: $line";
+            say localtime(time) . " -- mapend: $line";
 
             my @data = split( ' ', $line );
 
@@ -197,7 +198,7 @@ my $filestream = IO::Async::FileStream->new(
          }
          elsif ( $line =~ /^status .+ [0-9][0-9]?$/ )
          {
-            say localtime(time) . " -> status: $line";
+            say localtime(time) . " -- status: $line";
 
             my @data = split( ' ', $line );
 
@@ -927,7 +928,8 @@ sub discord_on_message_create
                      'allowed_mentions' => { parse => [] },
                   };
 
-                  $discord->send_message( $channel, $message );
+                  #$discord->send_message( $channel, $message );
+                  $discord->send_message_content_blocking( $channel, $message );
                }
             }
             elsif ($1 eq 'del' || $1 eq 'delete')
