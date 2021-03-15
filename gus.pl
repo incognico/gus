@@ -252,7 +252,7 @@ my $filestream = IO::Async::FileStream->new(
             my $steamid = $3;
             my $msg     = $4;
 
-            return if ($msg =~ /^ ?\.vc /);
+            return if ($msg =~ /^\.(vc|cspitch) /);
 
             $nick =~ s/`//g;
 
@@ -374,7 +374,7 @@ sub discord_on_message_create
             $msg =~ s/(\R|\s)+/ /gn;
             $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
             $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
-            $msg =~ s/<a?(:.+:)\d+>/$1/g; # emoji
+            $msg =~ s/<a?(:[^:.]+:)\d+>/$1/g; # emoji
 
             return unless $msg;
 
