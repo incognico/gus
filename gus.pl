@@ -50,7 +50,7 @@ $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my $self;
-my ($store, $storechanged, $lastmap, $maptime) = ({}, 0, '', 0);
+my ($store, $storechanged, $lastmap, $maptime, $antispam) = ({}, 0, '', 0, {});
 
 my $config = {
    game         => 'Sven Co-op',
@@ -140,7 +140,7 @@ my $maps = {
 };
 
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
-my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||__|\*|~|>)/;
+my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||_|\*|~|>)/;
 
 ###
 
@@ -187,11 +187,17 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
+            if ( $data[1] eq '_server_start' )
+            {
+               $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted**' );
+               return;
+            }
+
             return if ( $data[2] eq '0' );
 
             my ($after, $sec) = ('', 0);
             $sec   = time - $maptime if $maptime;
-            $after = ' after `' . duration($sec) . '`' if ($sec > 60);
+            $after = ' after `' . duration($sec+5) . '`' if ($sec > 60);
             $maptime = 0;
 
             $discord->send_message( $$config{discord}{linkchan}, ":checkered_flag: Map `$data[1]` ended$after" );
@@ -255,6 +261,9 @@ my $filestream = IO::Async::FileStream->new(
 
             return if ($msg =~ /^\.(vc|cspitch) /);
 
+            return if ($msg eq $$antispam{$steamid});
+            $$antispam{$steamid} = $msg;
+
             $nick =~ s/`//g;
 
             $msg =~ s/(\s|\R)+/ /g;
@@ -268,8 +277,14 @@ my $filestream = IO::Async::FileStream->new(
                 return;
             }
 
+            $msg = '_\*' . substr($msg, 4) . '\*_' if ($msg =~ /^\/me /);
+
             my $final = "`$nick`  $msg";
-            $final =~ s/^/<:gtfo:603609334781313037> / if ($line =~ /^- /);
+            if ($line =~ /^- /)
+            {
+               $final =~ s/^/<:gtfo:603609334781313037> /;
+               delete $$antispam{$steamid};
+            }
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
             my $message = {
