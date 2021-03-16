@@ -261,7 +261,7 @@ my $filestream = IO::Async::FileStream->new(
 
             return if ($msg =~ /^\.(vc|cspitch) /);
 
-            return if ($msg eq $$antispam{$steamid});
+            return if (exists $$antispam{$steamid} && $msg eq $$antispam{$steamid});
             $$antispam{$steamid} = $msg;
 
             $nick =~ s/`//g;
