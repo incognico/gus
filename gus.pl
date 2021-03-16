@@ -189,7 +189,7 @@ my $filestream = IO::Async::FileStream->new(
 
             if ( $data[1] eq '_server_start' )
             {
-               $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted**' );
+               $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted** <:wojakrage:800709248500891648>' );
                return;
             }
 
