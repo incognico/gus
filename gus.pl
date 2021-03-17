@@ -50,7 +50,7 @@ $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my $self;
-my ($store, $storechanged, $lastmap, $maptime, $antispam) = ({}, 0, '', 0, {});
+my ($store, $storechanged, $lastmap, $maptime, $antispam) = ({}, 0, '?', 0, {});
 
 my $config = {
    game         => 'Sven Co-op',
@@ -189,7 +189,7 @@ my $filestream = IO::Async::FileStream->new(
 
             if ( $data[1] eq '_server_start' )
             {
-               $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted** <:wojakrage:800709248500891648>' );
+               $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted** <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' );
                return;
             }
 
@@ -241,13 +241,14 @@ my $filestream = IO::Async::FileStream->new(
             
             $discord->send_message( $$config{discord}{linkchan}, $message );
 
-            if ( exists $$maps{$data[1]} && $$maps{$data[1]} ne $lastmap )
+            if ( exists $$maps{$data[1]} && $data[1] ne $lastmap )
             {
                my $s = '';
                $s = 's' if ( $data[2] > 1 );
                $discord->send_message( $$config{discord}{mainchan}, "**$$maps{$data[1]}** has started with **$data[2]** player$s!" );
-               $lastmap = $$maps{$data[1]};
             }
+
+            $lastmap = $data[1];
          }
          else
          {
@@ -260,6 +261,7 @@ my $filestream = IO::Async::FileStream->new(
             my $msg     = $4;
 
             return if ($msg =~ /^\.(vc|cspitch) /);
+            return if ($msg =~ /^\/[a-z]$/);
 
             return if (exists $$antispam{$steamid} && $msg eq $$antispam{$steamid});
             $$antispam{$steamid} = $msg;
