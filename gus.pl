@@ -50,7 +50,7 @@ $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my $self;
-my ($store, $storechanged, $lastmap, $maptime, $cache) = ({}, 0, '?', 0, {});
+my ($store, $storechanged, $lastmap, $retries, $maptime, $cache) = ({}, 0, '?', 0, 0, {});
 
 my $config = {
    game         => 'Sven Co-op',
@@ -212,7 +212,20 @@ my $filestream = IO::Async::FileStream->new(
 
             $maptime = time;
 
-            return if ( $data[2] eq '0' );
+            if ($lastmap eq $data[1])
+            {
+               $retries++;
+            }
+            else
+            {
+               $retries = 0;
+            }
+
+            if ( $data[2] eq '0' )
+            {
+               $lastmap = $data[1];
+               return;
+            }
 
             my $embed = {
                'color' => '15844367',
@@ -233,6 +246,8 @@ my $filestream = IO::Async::FileStream->new(
                 },
                 ],
             };
+
+            push $$embed{'fields'}->@*, { 'name' => 'Attempt',  'value' => '#' . $retries, 'inline' => \1, } if ($retries > 0);
 
             my $message = {
                'content' => '',
