@@ -50,7 +50,7 @@ $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my $self;
-my ($store, $storechanged, $lastmap, $maptime, $antispam) = ({}, 0, '?', 0, {});
+my ($store, $storechanged, $lastmap, $maptime, $cache) = ({}, 0, '?', 0, {});
 
 my $config = {
    game         => 'Sven Co-op',
@@ -255,16 +255,16 @@ my $filestream = IO::Async::FileStream->new(
             $line =~ /<(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
             say localtime(time) . " -> $line";
 
-            my $nick    = $1;
-            my $r       = $gi->record_for_address($2 ? $2 : 0);
-            my $steamid = $3;
             my $msg     = $4;
+            my $steamid = $3;
+            my $r       = $gi->record_for_address($2 ? $2 : 0) unless $$cache{$steamid}{cc};
+            my $nick    = $1;
 
             return if ($msg =~ /^\.(vc|cspitch) /);
             return if ($msg =~ /^\/[a-z]$/);
 
-            return if (exists $$antispam{$steamid} && $msg eq $$antispam{$steamid});
-            $$antispam{$steamid} = $msg;
+            return if (exists $$cache{$steamid}{antispam} && $msg eq $$cache{$steamid}{antispam});
+            $$cache{$steamid}{antispam} = $msg;
 
             $nick =~ s/`//g;
 
@@ -281,20 +281,26 @@ my $filestream = IO::Async::FileStream->new(
 
             $msg = '_\*' . substr($msg, 4) . '\*_' if ($msg =~ /^\/me /);
 
+            my $clearcache;
+
             my $final = "`$nick`  $msg";
             if ($line =~ /^- /)
             {
                $final =~ s/^/<:gtfo:603609334781313037> /;
-               delete $$antispam{$steamid};
+               $clearcache++;
             }
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
+            $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if (!$$cache{$steamid}{cc} && $r->{country}{iso_code});
+
             my $message = {
-               content => ':' . ($r->{country}{iso_code} ? ('flag_' . lc($r->{country}{iso_code})) : 'gay_pride_flag') . ': ' . $final,
+               content => ':' . ($$cache{$steamid}{cc} ? ('flag_' . $$cache{$steamid}{cc}) : 'gay_pride_flag') . ': ' . $final,
                allowed_mentions => { parse => [] },
             };
 
             $discord->send_message( $$config{discord}{linkchan}, $message );
+
+            delete $$cache{$steamid} if $clearcache;
          }
       }
 
