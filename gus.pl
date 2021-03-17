@@ -255,10 +255,12 @@ my $filestream = IO::Async::FileStream->new(
             $line =~ /<(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
             say localtime(time) . " -> $line";
 
-            my $msg     = $4;
-            my $steamid = $3;
-            my $r       = $gi->record_for_address($2 ? $2 : 0) unless $$cache{$steamid}{cc};
             my $nick    = $1;
+            my $ip      = $2;
+            my $steamid = $3;
+            my $msg     = $4;
+
+            my $r = $gi->record_for_address($ip) if(!$$cache{$steamid}{cc} && $ip);
 
             return if ($msg =~ /^\.(vc|cspitch) /);
             return if ($msg =~ /^\/[a-z]$/);
@@ -291,7 +293,7 @@ my $filestream = IO::Async::FileStream->new(
             }
             $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
 
-            $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if (!$$cache{$steamid}{cc} && $r->{country}{iso_code});
+            $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if (!$$cache{$steamid}{cc} && $ip && $r->{country}{iso_code});
 
             my $message = {
                content => ':' . ($$cache{$steamid}{cc} ? ('flag_' . $$cache{$steamid}{cc}) : 'gay_pride_flag') . ': ' . $final,
