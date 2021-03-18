@@ -50,7 +50,7 @@ $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my $self;
-my ($store, $storechanged, $lastmap, $retries, $maptime, $cache) = ({}, 0, '?', 0, 0, {});
+my ($store, $storechanged, $lastmap, $retries, $maptime, $cache) = ({}, 0, '', 0, 0, {});
 
 my $config = {
    game         => 'Sven Co-op',
@@ -189,7 +189,9 @@ my $filestream = IO::Async::FileStream->new(
 
             if ( $data[1] eq '_server_start' )
             {
-               $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted** <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' );
+               my $add = '';
+               $add =  ' <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' if $lastmap;
+               $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted**' . $add );
                return;
             }
 
@@ -247,7 +249,7 @@ my $filestream = IO::Async::FileStream->new(
                 ],
             };
 
-            push $$embed{'fields'}->@*, { 'name' => 'Attempt',  'value' => '#' . $retries, 'inline' => \1, } if ($retries > 0);
+            push $$embed{'fields'}->@*, { 'name' => 'Attempt',  'value' => '#' . $retries+1, 'inline' => \1, } if ($retries > 0);
 
             my $message = {
                'content' => '',
