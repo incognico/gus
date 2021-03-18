@@ -195,7 +195,7 @@ my $filestream = IO::Async::FileStream->new(
                return;
             }
 
-            return if ( $data[2] eq '0' );
+            return if ( $data[2] == 0 );
 
             my ($after, $sec) = ('', 0);
             $sec   = time - $maptime if $maptime;
@@ -223,7 +223,7 @@ my $filestream = IO::Async::FileStream->new(
                $retries = 0;
             }
 
-            if ( $data[2] eq '0' )
+            if ( $data[2] == 0 )
             {
                $lastmap = $data[1];
                return;
@@ -249,7 +249,7 @@ my $filestream = IO::Async::FileStream->new(
                 ],
             };
 
-            push $$embed{'fields'}->@*, { 'name' => 'Attempt',  'value' => '#' . $retries+1, 'inline' => \1, } if ($retries > 0);
+            push $$embed{'fields'}->@*, { 'name' => 'Attempt',  'value' => '#' . ($retries+1), 'inline' => \1, } if ($retries > 0);
 
             my $message = {
                'content' => '',
