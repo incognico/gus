@@ -101,6 +101,7 @@ my $maps = {
    'bm_sts'               => '<:sven:459617478365020203> Black Mesa Special Tactics Sector',
    'botparty'             => '<:omegalul:458685801706815489> Bot Party',
    'botrace'              => '<:happy:555506080793493538> Bot Race',
+   'dy_accident1'         => ':person_in_motorized_wheelchair: HL: Decay',
    'echoes00'             => '<:wow:516921262199799818> HL: Echoes',
    'escape_series_1a'     => ':runner: Escape Series: Part 1',
    'escape_series_2a'     => ':runner: Escape Series: Part 2',
