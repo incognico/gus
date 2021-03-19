@@ -57,15 +57,15 @@ my $config = {
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
-   steamapikey  => '***REMOVED***',
+   steamapikey  => '',
    steamapiurl  => 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=',
    steamapiurl2 => 'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=',
    serverport   => 27015,
-   gmapikey     => '***REMOVED***',
+   gmapikey     => '',
    geo          => $THISDIR . '/GeoLite2-City.mmdb',
    store        => $THISDIR . '/.store.yml',
-   omdbapikey   => ***REMOVED***,
-   aqiapikey    => '***REMOVED***',
+   omdbapikey   => ,
+   aqiapikey    => '',
 
    discord => {
       linkchan   => 458683388887302155,
@@ -86,7 +86,7 @@ my $config = {
 my $discord = Mojo::Discord->new(
    'version'   => '9999',
    'url'       => 'https://twlz.lifeisabug.com',
-   'token'     => '***REMOVED***',
+   'token'     => '',
    'reconnect' => 1,
    'verbose'   => 1,
    'logdir'    => "$ENV{HOME}/gus",
