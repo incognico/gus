@@ -57,15 +57,15 @@ my $config = {
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
-   steamapikey  => '',
+   steamapikey  => '***REMOVED***',
    steamapiurl  => 'https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=XXXSTEAMAPIKEYXXX&steamids=',
    steamapiurl2 => 'https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=XXXSTEAMAPIKEYXXX&steamids=',
    serverport   => 27015,
-   gmapikey     => '',
+   gmapikey     => '***REMOVED***',
    geo          => $THISDIR . '/GeoLite2-City.mmdb',
    store        => $THISDIR . '/.store.yml',
-   omdbapikey   => ,
-   aqiapikey    => '',
+   omdbapikey   => ***REMOVED***,
+   aqiapikey    => '***REMOVED***',
 
    discord => {
       linkchan   => 458683388887302155,
@@ -86,7 +86,7 @@ my $config = {
 my $discord = Mojo::Discord->new(
    'version'   => '9999',
    'url'       => 'https://twlz.lifeisabug.com',
-   'token'     => '',
+   'token'     => '***REMOVED***',
    'reconnect' => 1,
    'verbose'   => 1,
    'logdir'    => "$ENV{HOME}/gus",
@@ -95,8 +95,8 @@ my $discord = Mojo::Discord->new(
 );
 
 my $maps = {
-   'asmap00'              => ':sheep: Azure Sheep',
    'ba_tram1'             => '<:flower:772815800712560660> HL: Blue Shift',
+   'ba_tram_m'            => '<:flower:772815800712560660> HL: Blue Shift',
    'bm_nightmare_a_final' => '<:scary:516921261688094720> Black Mesa Nightmare',
    'bm_sts'               => '<:sven:459617478365020203> Black Mesa Special Tactics Sector',
    'botparty'             => '<:omegalul:458685801706815489> Bot Party',
@@ -106,13 +106,12 @@ my $maps = {
    'escape_series_1a'     => ':runner: Escape Series: Part 1',
    'escape_series_2a'     => ':runner: Escape Series: Part 2',
    'escape_series_3a'     => ':runner: Escape Series: Part 3',
-   'g-ara1'               => '<:nani:603508663562272788> G-ARA',
-   'hidoi_map1'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 1',
-   'hidoi_map2'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map 2',
+   'hidoi_map1'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map',
    'hl_c00'               => '<:flower:772815800712560660> Half-Life',
    'island'               => ':island: Comfy, island',
    'mustard_b'            => ':hotdog: Mustard Factory',
    'of0a0'                => '<:flower:772815800712560660> HL: Opposing Force',
+   'of1a1_mv2'            => '<:flower:772815800712560660> HL: Opposing Force',
    'of_utbm'              => ':new_moon: OP4: Under the Black Moon',
    'otokotati_no_kouzan'  => ':hammer_pick: Otokotati No Kouzan',
    'pizza_ya_san1'        => ':pizza: Pizza Ya San: 1',
@@ -129,8 +128,8 @@ my $maps = {
    'rust_legacy'          => '<:eecat:460442390457483274> (legacy) R U S T',
    'rust_mini'            => '<:eecat:460442390457483274> (mini) R U S T',
    'sa13'                 => '<:KannaSuicide:603609334080995338> SA13',
-   'sc_royals1'           => ':eye: Royals',
    'sc_tl_build_puzzle_fft_final' => '<:PepeKek:603647721496248321> Build Puzzle',
+   'shockraid_jungle'     => ':tanabata_tree: ShockRaid Jungle',
    'th_ep1_01'            => '<:irlmaier:460382258336104448> They Hunger: Episode 1',
    'th_ep2_00'            => '<:irlmaier:460382258336104448> They Hunger: Episode 2',
    'th_ep3_00'            => '<:irlmaier:460382258336104448> They Hunger: Episode 3',
@@ -971,8 +970,7 @@ sub discord_on_message_create
                      'allowed_mentions' => { parse => [] },
                   };
 
-                  #$discord->send_message( $channel, $message );
-                  $discord->send_message_content_blocking( $channel, $message );
+                  $discord->send_message( $channel, $message );
                }
             }
             elsif ($1 eq 'del' || $1 eq 'delete')
