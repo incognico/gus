@@ -107,7 +107,7 @@ my $maps = {
    'escape_series_2a'     => ':runner: Escape Series: Part 2',
    'escape_series_3a'     => ':runner: Escape Series: Part 3',
    'hidoi_map1'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map',
-   'hl_c00'               => '<:flower:772815800712560660> Half-Life',
+   'hl_c01_a1'            => '<:flower:772815800712560660> Half-Life',
    'island'               => ':island: Comfy, island',
    'mustard_b'            => ':hotdog: Mustard Factory',
    'of0a0'                => '<:flower:772815800712560660> HL: Opposing Force',
@@ -1174,6 +1174,7 @@ sub discord_on_ready ()
       else
       {
          $discord->status_update( { 'name' => 'SC on ' . $$infos{'map'}, type => 0 } );
+         $lastmap = $$infos{'map'};
       }
    });
 
