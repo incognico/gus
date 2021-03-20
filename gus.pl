@@ -139,6 +139,13 @@ my $maps = {
    'uboa'                 => ':rice_ball: UBOA',
 };
 
+my $reactions = {
+   'green' => ':greentick:712004372678049822',
+   'red'   => ':redtick:712004372707541003',
+   'what'  => ':what:660870075607416833',
+   'pepe'  => ':PepeHands:557286043548778499',
+};
+
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
 my $discord_markdown_pattern = qr/(?<!\\)(`|@|#|\||_|\*|~|>)/;
 
@@ -544,35 +551,23 @@ sub discord_on_message_create
             }
             else
             {
-                r_red( $channel, $msgid );
+                react( $channel, $msgid, 'red' );
             }
          }
          elsif ( $msg =~ /^!stat(us|su)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
             $discord->start_typing( $channel, sub {
-               my $if       = IO::Interface::Simple->new('lo');
-               my $addr     = $if->address;
-               my $port     = $$config{'serverport'};
-               my $ap       = "$addr:$port";
-               my $encoding = term_encoding;
+               my $infos = getstatus();
 
-               my $q = Net::SRCDS::Queries->new(
-                  encoding => $encoding,
-                  timeout  => 2,
-               );
-
-               $q->add_server( $addr, $port );
-               my $infos = $q->get_all;
-
-               unless ( defined $$infos{$ap}{'info'} )
+               unless ( defined $infos )
                {
-                  r_pepe( $channel, $msgid );
+                  react( $channel, $msgid, 'pepe' );
                }
                else
                {
                   my $diff = '';
-                  $diff = "  Difficulty: **$1**" if ( $$infos{$ap}{'info'}{'sname'} =~ /difficulty: (.+)/ );
-                  my $dmsg = "Map: **$$infos{$ap}{'info'}{'map'}**  Players: **$$infos{$ap}{'info'}{'players'}**/$$infos{$ap}{'info'}{'max'}$diff";
+                  $diff = "  Difficulty: **$1**" if ( $$infos{'sname'} =~ /difficulty: (.+)/ );
+                  my $dmsg = "Map: **$$infos{'map'}**  Players: **$$infos{'players'}**/$$infos{'max'}$diff";
 
                   $discord->send_message( $channel, $dmsg );
                }
@@ -608,7 +603,7 @@ sub discord_on_message_create
 
                unless ( $input )
                {
-                  r_red( $channel, $msgid );
+                  react( $channel, $msgid, 'red' );
                   return;
                }
 
@@ -719,7 +714,7 @@ sub discord_on_message_create
             my $r = $ua->get( $neko, 'Content-Type' => 'application/json', 'Accept-Encoding' => HTTP::Message::decodable );
             unless ( $r->is_success )
             {
-               r_pepe( $channel, $msgid );
+               react( $channel, $msgid, 'pepe' );
                return;
             }
             my $i = decode_json ( $r->decoded_content );
@@ -730,7 +725,7 @@ sub discord_on_message_create
             }
             else
             {
-               r_pepe( $channel, $msgid );
+               react( $channel, $msgid, 'pepe' );
             }
          }
          elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{mediachan} )
@@ -742,7 +737,7 @@ sub discord_on_message_create
             my $r = $ua->get( "https://api.urbandictionary.com/v0/define?term=$query", 'Content-Type' => 'application/json', 'Accept-Encoding' => HTTP::Message::decodable );
             unless ( $r->is_success )
             {
-               r_pepe( $channel, $msgid );
+               react( $channel, $msgid, 'pepe' );
                return;
             }
             my $ud = decode_json ( $r->decoded_content );
@@ -764,12 +759,12 @@ sub discord_on_message_create
                }
                else
                {
-                  r_red( $channel, $msgid );
+                  react( $channel, $msgid, 'red' );
                }
             }
             else
             {
-               r_pepe( $channel, $msgid );
+               react( $channel, $msgid, 'pepe' );
             }
          }
          elsif ( $msg =~ /^!(?:[io]mdb|movie) (.+)/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -791,7 +786,7 @@ sub discord_on_message_create
             my $r = $ua->get( $url, 'Content-Type' => 'application/json', 'Accept-Encoding' => HTTP::Message::decodable );
             unless ( $r->is_success )
             {
-               r_pepe( $channel, $msgid );
+               react( $channel, $msgid, 'pepe' );
                return;
             }
             my $omdb = decode_json ( $r->decoded_content );
@@ -854,7 +849,7 @@ sub discord_on_message_create
             }
             else
             {
-               r_red( $channel, $msgid );
+               react( $channel, $msgid, 'red' );
             }
          }
          elsif ( $msg =~ /^((?:\[\s\]\s[^\[\]]+\s?)+)/ && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
@@ -883,11 +878,11 @@ sub discord_on_message_create
                   {
                      $$store{users}{$id}{$type} = $value;
                      $storechanged = 1;
-                     r_green( $channel, $msgid );
+                     react( $channel, $msgid, 'green' );
                   }
                   else
                   {
-                     r_red( $channel, $msgid );
+                     react( $channel, $msgid, 'red' );
                   }
                }
                elsif ($type eq 'steamid')
@@ -913,7 +908,7 @@ sub discord_on_message_create
                   }
                   else
                   {
-                     r_red( $channel, $msgid );
+                     react( $channel, $msgid, 'red' );
                   }
                }
                else
@@ -921,7 +916,7 @@ sub discord_on_message_create
                   $$store{users}{$id}{$type} = $value;
                   $storechanged = 1;
 
-                  r_green( $channel, $msgid );
+                  react( $channel, $msgid, 'green' );
                }
             }
             elsif ($action eq 'get')
@@ -932,7 +927,7 @@ sub discord_on_message_create
                }
                else
                {
-                  r_red( $channel, $msgid );
+                  react( $channel, $msgid, 'red' );
                }
             }
          }
@@ -984,7 +979,7 @@ sub discord_on_message_create
                         delete $$store{reminders}{$_};
                         $storechanged = 1;
 
-                        r_green( $channel, $msgid );
+                        react( $channel, $msgid, 'green' );
                      }
                   }
                }
@@ -1023,7 +1018,7 @@ sub discord_on_message_create
 
                if ($@ || !$time || ($text && length($text) > 512))
                {
-                  r_what( $channel, $msgid );
+                  react( $channel, $msgid, 'what' );
                   return;
                }
 
@@ -1037,14 +1032,14 @@ sub discord_on_message_create
                }
                else
                {
-                  r_what( $channel, $msgid );
+                  react( $channel, $msgid, 'what' );
                   return;
                }
             }
 
             if ($time < time || $time > 7952342400)
             {
-               r_what( $channel, $msgid );
+               react( $channel, $msgid, 'what' );
                return;
             }
 
@@ -1063,7 +1058,7 @@ sub discord_on_message_create
 
             if ($delay && $delay <= 360)
             {
-               r_green( $channel, $msgid );
+               react( $channel, $msgid, 'green' );
             }
             else
             {
@@ -1098,7 +1093,7 @@ sub discord_on_message_create
 
                unless ( $input )
                {
-                  r_red( $channel, $msgid );
+                  react( $channel, $msgid, 'red' );
                   return;
                }
 
@@ -1169,7 +1164,17 @@ sub discord_on_ready ()
    $discord->gw->on('READY' => sub ($gw, $hash)
    {
       add_me($hash->{'user'});
-      $discord->status_update( { 'name' => $$config{'game'}, type => 0 } ) if ( $$config{'game'} );
+
+      my $infos = getstatus();
+
+      unless ( defined $infos )
+      {
+         $discord->status_update( { 'name' => $$config{'game'}, type => 0 } ) if ( $$config{'game'} );
+      }
+      else
+      {
+         $discord->status_update( { 'name' => 'SC on ' . $$infos{'map'}, type => 0 } );
+      }
    });
 
    return;
@@ -1303,7 +1308,7 @@ sub verify ($steamid)
       $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
       $discord->add_guild_member_role( $$config{discord}{guild_id}, $$store{steamidqueue}{$steamid}{discordid}, $$config{discord}{ver_role} );
       $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! VIP status granted." );
-      r_green( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid} );
+      react( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, 'green' );
 
       delete $$store{steamidqueue}{$steamid};
    }
@@ -1311,27 +1316,29 @@ sub verify ($steamid)
    return;
 }
 
-sub r_green ($channel, $msgid)
+sub getstatus ()
 {
-   $discord->create_reaction( $channel, $msgid, ':greentick:712004372678049822' );
+   my $if       = IO::Interface::Simple->new('lo');
+   my $addr     = $if->address;
+   my $port     = $$config{'serverport'};
+   my $ap       = "$addr:$port";
+   my $encoding = term_encoding;
+
+   my $q = Net::SRCDS::Queries->new(
+      encoding => $encoding,
+      timeout  => 1.5,
+   );
+
+   $q->add_server( $addr, $port );
+   my $infos = $q->get_all;
+
+   return $$infos{$ap}{'info'} if ( defined $$infos{$ap}{'info'} );
    return;
 }
 
-sub r_red ($channel, $msgid)
+sub react ($channel, $msgid, $reaction)
 {
-   $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
-   return;
-}
-
-sub r_what ($channel, $msgid)
-{
-   $discord->create_reaction( $channel, $msgid, ':what:660870075607416833' );
-   return;
-}
-
-sub r_pepe ($channel, $msgid)
-{
-   $discord->create_reaction( $channel, $msgid, ':PepeHands:557286043548778499' );
+   $discord->create_reaction( $channel, $msgid, $$reactions{$reaction} );
    return;
 }
 
