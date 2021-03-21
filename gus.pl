@@ -206,7 +206,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my ($after, $sec) = ('', 0);
             $sec   = time - $maptime if $maptime;
-            $after = ' after `' . duration($sec+5) . '`' if ($sec > 60);
+            $after = ' after `' . duration($sec) . '`' if ($sec > 30);
             $maptime = 0;
 
             $discord->send_message( $$config{discord}{linkchan}, ":checkered_flag: Map `$data[1]` ended$after" );
@@ -217,9 +217,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my @data = split( ' ', $line );
 
-            $discord->status_update( { 'name' => 'SC on ' . $data[1], type => 0 } );
-
-            $maptime = time;
+            $maptime = time-5;
 
             if ($lastmap eq $data[1])
             {
@@ -228,6 +226,7 @@ my $filestream = IO::Async::FileStream->new(
             else
             {
                $retries = 0;
+               $discord->status_update( { 'name' => 'SC on ' . $data[1], type => 0 } );
             }
 
             if ( $data[2] == 0 )
@@ -1327,7 +1326,7 @@ sub getstatus ()
 
    my $q = Net::SRCDS::Queries->new(
       encoding => $encoding,
-      timeout  => 1.5,
+      timeout  => $maptime ? 1.5 : 0.5,
    );
 
    $q->add_server( $addr, $port );
