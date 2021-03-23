@@ -49,7 +49,7 @@ $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
-my $self;
+my ($self, $guild);
 my ($store, $storechanged, $lastmap, $retries, $maptime, $cache) = ({}, 0, '', 0, 0, {});
 
 my $config = {
@@ -162,6 +162,7 @@ DumpFile($$config{store}, $store) unless (-f $$config{store});
 $store = LoadFile($$config{store});
 
 discord_on_ready();
+discord_on_guild_create();
 discord_on_message_create();
 
 $discord->init();
@@ -416,13 +417,13 @@ sub discord_on_message_create
          {
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
-            if ( $msg =~ s/<@!?(\d+)>/\@$self->{'users'}->{$1}->{'username'}/g ) # user/nick
+            if ( $msg =~ s/<@!?(\d+)>/\@$$self{'users'}{$1}{'username'}/g ) # user/nick
             {
-               $msg =~ s/(?:\R^)\@$self->{'users'}->{$1}->{'username'}/ >>> /m if ($1 == $self->{'id'});
+               $msg =~ s/(?:\R^)\@$$self{'users'}{$1}{'username'}/ >>> /m if ($1 == $$self{'id'});
             }
             $msg =~ s/(\R|\s)+/ /gn;
-            $msg =~ s/<#(\d+)>/#$self->{'channelnames'}->{$1}/g; # channel
-            $msg =~ s/<@&(\d+)>/\@$self->{'rolenames'}->{$1}/g; # role
+            $msg =~ s/<#(\d+)>/#$$guild{'channels'}{$1}{'name'}/g; # channel
+            $msg =~ s/<@&(\d+)>/\@$$guild{'roles'}{$1}{'name'}/g; # role
             $msg =~ s/<a?(:[^:.]+:)\d+>/$1/g; # emoji
 
             return unless $msg;
@@ -1158,6 +1159,8 @@ sub discord_on_message_create
    return;
 }
 
+###
+
 sub discord_on_ready ()
 {
    $discord->gw->on('READY' => sub ($gw, $hash)
@@ -1180,9 +1183,16 @@ sub discord_on_ready ()
    return;
 }
 
+sub discord_on_guild_create ()
+{
+   $discord->gw->on('GUILD_CREATE' => sub ($gw, $hash) { $guild = $discord->get_guild($$config{'discord'}{'guild_id'}); });
+
+   return;
+}
+
 sub add_me ($user)
 {
-   $self->{'id'} = $user->{'id'};
+   $$self{'id'} = $$user{'id'};
    add_user($user);
 
    return;
@@ -1190,28 +1200,12 @@ sub add_me ($user)
 
 sub add_user ($user)
 {
-   $self->{'users'}{$user->{'id'}} = $user;
+   $$self{'users'}{$$user{'id'}} = $user;
 
    return;
 }
 
-sub add_guild ($guild)
-{
-   $self->{'guilds'}{$guild->{'id'}} = $guild;
-
-   foreach my $channel ($guild->{'channels'}->@*)
-   {
-      $self->{'channels'}{$channel->{'id'}} = $guild->{'id'};
-      $self->{'channelnames'}{$channel->{'id'}} = $channel->{'name'}
-   }
-
-   foreach my $role ($guild->{'roles'}->@*)
-   {
-      $self->{'rolenames'}{$role->{'id'}} = $role->{'name'};
-   }
-
-   return;
-}
+###
 
 sub duration ($sec)
 {
