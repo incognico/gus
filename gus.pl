@@ -49,7 +49,7 @@ $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
-my ($self, $guild);
+my ($self, $guild, $started, $ready, $resumed) = (undef, undef, time, 0, 0);
 my ($store, $storechanged, $lastmap, $retries, $maptime, $cache) = ({}, 0, '', 0, 0, {});
 
 my $config = {
@@ -163,6 +163,7 @@ $store = LoadFile($$config{store});
 
 discord_on_ready();
 discord_on_guild_create();
+discord_on_resumed();
 discord_on_message_create();
 
 $discord->init();
@@ -1153,6 +1154,37 @@ sub discord_on_message_create
          {
             $discord->send_message( $channel, 'https://twlz.lifeisabug.com/gus' );
          }
+         elsif ( $msg =~ /^!uptime/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) && $id == $$config{discord}{owner_id} )
+         {
+            my $embed = {
+               'color' => '15844367',
+                'title' => ':timer: **Gus Uptime**',
+                'fields' => [
+                 {
+                    'name'   => 'Bot',
+                    'value'  => duration(time-$started),
+                    'inline' => \0,
+                 },
+                 {
+                    'name'   => 'Session',
+                    'value'  => duration(time-$ready),
+                    'inline' => \0,
+                 },
+                 {
+                    'name'   => 'Connection',
+                    'value'  => duration(time-$resumed),
+                    'inline' => \0,
+                 },
+                 ],
+            };
+
+            my $message = {
+               'content' => '',
+               'embed' => $embed,
+            };
+
+            $discord->send_message( $channel, $message );
+         }
       }
    });
 
@@ -1165,6 +1197,8 @@ sub discord_on_ready ()
 {
    $discord->gw->on('READY' => sub ($gw, $hash)
    {
+      $ready = $resumed = time;
+
       add_me($hash->{'user'});
 
       my $infos = getstatus();
@@ -1186,6 +1220,13 @@ sub discord_on_ready ()
 sub discord_on_guild_create ()
 {
    $discord->gw->on('GUILD_CREATE' => sub ($gw, $hash) { $guild = $discord->get_guild($$config{'discord'}{'guild_id'}); });
+
+   return;
+}
+
+sub discord_on_resumed ()
+{
+   $discord->gw->on('RESUMED' => sub ($gw, $hash) { $resumed = time; });
 
    return;
 }
