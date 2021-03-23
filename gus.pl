@@ -49,7 +49,7 @@ $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
-my ($self, $guild, $started, $ready, $resumed) = (undef, undef, time, 0, 0);
+my ($self, $guild, $started, $ready, $readyc, $resumed, $resumedc) = (undef, undef, time, 0, 0, 0, 0);
 my ($store, $storechanged, $lastmap, $retries, $maptime, $cache) = ({}, 0, '', 0, 0, {});
 
 my $config = {
@@ -1158,22 +1158,32 @@ sub discord_on_message_create
          {
             my $embed = {
                'color' => '15844367',
-                'title' => ':timer: **Gus Uptime**',
+                'title' => '**:chart_with_upwards_trend: Discord Connection Statistics**',
                 'fields' => [
                  {
-                    'name'   => 'Bot',
+                    'name'   => 'Gus Uptime',
                     'value'  => duration(time-$started),
-                    'inline' => \0,
+                    'inline' => \1,
                  },
                  {
-                    'name'   => 'Session',
+                    'name'   => 'Sess. Uptime',
                     'value'  => duration(time-$ready),
-                    'inline' => \0,
+                    'inline' => \1,
                  },
                  {
-                    'name'   => 'Connection',
+                    'name'   => 'Conn. Uptime',
                     'value'  => duration(time-$resumed),
-                    'inline' => \0,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Sessions',
+                    'value'  => $readyc,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Resumed',
+                    'value'  => $resumedc . ' time' . ($resumedc == 1 ? '' : 's'),
+                    'inline' => \1,
                  },
                  ],
             };
@@ -1198,6 +1208,7 @@ sub discord_on_ready ()
    $discord->gw->on('READY' => sub ($gw, $hash)
    {
       $ready = $resumed = time;
+      $readyc++;
 
       add_me($hash->{'user'});
 
@@ -1226,7 +1237,7 @@ sub discord_on_guild_create ()
 
 sub discord_on_resumed ()
 {
-   $discord->gw->on('RESUMED' => sub ($gw, $hash) { $resumed = time; });
+   $discord->gw->on('RESUMED' => sub ($gw, $hash) { $resumed = time; $resumedc++; });
 
    return;
 }
