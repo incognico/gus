@@ -49,11 +49,12 @@ $ua->agent( 'Mozilla/5.0' );
 $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
-my ($self, $guild, $started, $ready, $readyc, $resumed, $resumedc) = (undef, undef, time, 0, 0, 0, 0);
-my ($store, $storechanged, $lastmap, $retries, $maptime, $cache) = ({}, 0, '', 0, 0, {});
+my ($guild, $users, $started, $ready, $readyc, $resumed, $resumedc)
+=  (undef,  undef,  time,     0,      0,       0,        0);
+my ($store, $storechanged, $lastmap, $retries, $maptime, $cache)
+=  ({},     0,             '',       0,        0,        {});
 
 my $config = {
-   game         => 'Sven Co-op',
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
    tosven       => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_tosven.txt",
    db           => "$ENV{HOME}/scstats/scstats.db",
@@ -418,9 +419,9 @@ sub discord_on_message_create
          {
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
-            if ( $msg =~ s/<@!?(\d+)>/\@$$self{'users'}{$1}{'username'}/g ) # user/nick
+            if ( $msg =~ s/<@!?(\d+)>/\@$$users{'users'}{$1}{'username'}/g ) # user/nick
             {
-               $msg =~ s/(?:\R^)\@$$self{'users'}{$1}{'username'}/ >>> /m if ($1 == $$self{'id'});
+               $msg =~ s/(?:\R^)\@$$users{'users'}{$1}{'username'}/ >>> /m if ($1 == $$users{'id'});
             }
             $msg =~ s/(\R|\s)+/ /gn;
             $msg =~ s/<#(\d+)>/#$$guild{'channels'}{$1}{'name'}/g; # channel
@@ -1176,8 +1177,8 @@ sub discord_on_message_create
                     'inline' => \1,
                  },
                  {
-                    'name'   => 'Sessions',
-                    'value'  => $readyc,
+                    'name'   => 'Session',
+                    'value'  => '#' . $readyc,
                     'inline' => \1,
                  },
                  {
@@ -1216,7 +1217,7 @@ sub discord_on_ready ()
 
       unless ( defined $infos )
       {
-         $discord->status_update( { 'name' => $$config{'game'}, type => 0 } ) if ( $$config{'game'} );
+         $discord->status_update( { 'name' => 'Sven Co-op', type => 0 } );
       }
       else
       {
@@ -1244,7 +1245,7 @@ sub discord_on_resumed ()
 
 sub add_me ($user)
 {
-   $$self{'id'} = $$user{'id'};
+   $$users{'id'} = $$user{'id'};
    add_user($user);
 
    return;
@@ -1252,7 +1253,7 @@ sub add_me ($user)
 
 sub add_user ($user)
 {
-   $$self{'users'}{$$user{'id'}} = $user;
+   $$users{'users'}{$$user{'id'}} = $user;
 
    return;
 }
