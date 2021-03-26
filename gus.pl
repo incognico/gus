@@ -567,11 +567,13 @@ sub discord_on_message_create
                }
                else
                {
-                  my $diff = '';
-                  $diff = "  Difficulty: **$1**" if ( $$infos{'sname'} =~ /difficulty: (.+)/ );
-                  my $dmsg = "Map: **$$infos{'map'}**  Players: **$$infos{'players'}**/$$infos{'max'}$diff";
+                  my ($d, $a, $t) = ('', '', '');
+                  $d = "  Difficulty: **$1**" if ( $$infos{'sname'} =~ /diff(?:iculty)?: (.+)/ );
+                  $a = ', Attempt: **#' . ($retries+1) . '**' if $retries;
+                  $t = ' (started **' . duration($maptime) . "** ago$a) " if $maptime;
+                  my $message = "Map: **$$infos{'map'}** $t Players: **$$infos{'players'}**/$$infos{'max'}$d";
 
-                  $discord->send_message( $channel, $dmsg );
+                  $discord->send_message( $channel, $message );
                }
             });
          }
