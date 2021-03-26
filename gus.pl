@@ -568,7 +568,7 @@ sub discord_on_message_create
                else
                {
                   my ($d, $a, $t) = ('', '', '');
-                  $d = "Difficulty: **$1**  " if ( $$infos{'sname'} =~ /diff(?:iculty)?: (.+)/ );
+                  $d = 'Difficulty: **' . ($1+0) . '%**  ' if ( $$infos{'sname'} =~ /diff(?:iculty)?: (.+)%/ );
                   $a = ', Attempt: **#' . ($retries+1) . '**' if $retries;
                   $t = '(started **' . duration(time-$maptime) . "** ago$a) " if $maptime;
                   my $message = "Map: **$$infos{'map'}** $t ${d}Players: **$$infos{'players'}**/$$infos{'max'}";
