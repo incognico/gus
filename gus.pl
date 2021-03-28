@@ -991,15 +991,14 @@ sub discord_on_message_create
          # TODO: random time 3h-3d when "remind me to ..."?
          {
             my $target = ( !defined $+{target} || fc($+{target}) eq fc('me') ) ? "<\@$id>" : $+{target};
+            my $delay  = $+{mins};
+            my $text   = defined $+{text} ? $+{text} : "\N{U+23F0}";
 
             unless ($target =~ /<@!?(\d+)>/)
             {
                react( $channel, $msgid, 'what' );
                return;
             }
-
-            my $delay  = $+{mins};
-            my $text   = defined $+{text} ? $+{text} : "\N{U+23F0}";
 
             my $time;
 
