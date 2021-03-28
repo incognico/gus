@@ -66,7 +66,6 @@ my $config = {
    geo          => $THISDIR . '/GeoLite2-City.mmdb',
    store        => $THISDIR . '/.store.yml',
    omdbapikey   => ,
-   aqiapikey    => '',
 
    discord => {
       linkchan   => 458683388887302155,
@@ -103,7 +102,7 @@ my $maps = {
    'botparty'             => '<:omegalul:458685801706815489> Bot Party',
    'botrace'              => '<:happy:555506080793493538> Bot Race',
    'dy_accident1'         => ':person_in_motorized_wheelchair: HL: Decay',
-   'echoes00'             => '<:wow:516921262199799818> HL: Echoes',
+   'echoes08'             => '<:wow:516921262199799818> HL: Echoes',
    'escape_series_1a'     => ':runner: Escape Series: Part 1',
    'escape_series_2a'     => ':runner: Escape Series: Part 2',
    'escape_series_3a'     => ':runner: Escape Series: Part 3',
@@ -570,7 +569,7 @@ sub discord_on_message_create
                   my ($d, $a, $t) = ('', '', '');
                   $d = 'Difficulty: **' . ($1+0) . '%**  ' if ( $$infos{'sname'} =~ /diff(?:iculty)?: (.+)%/ );
                   $a = ', Attempt: **#' . ($retries+1) . '**' if $retries;
-                  $t = '(started **' . duration(time-$maptime) . "** ago$a) " if $maptime;
+                  $t = '(started **' . duration(time-$maptime) . "** ago$a) " if ($maptime && $$infos{'players'});
                   my $message = "Map: **$$infos{'map'}** $t ${d}Players: **$$infos{'players'}**/$$infos{'max'}";
 
                   $discord->send_message( $channel, $message );
@@ -633,7 +632,6 @@ sub discord_on_message_create
             }
 
             my $w = Weather::METNO->new(lat => $lat, lon => $lon, alt => $alt, lang => 'en', uid => '<nico@lifeisbug.com>');
-            #my ($aqi_num, $aqi_txt) = aqi_by_coords($lat, $lon);
 
             my $symboltype = 'png';
             my $symbolurl  = 'https://distfiles.lifeisabug.com/metno/' . $symboltype;
@@ -649,7 +647,6 @@ sub discord_on_message_create
                    'url'      => sprintf('https://www.google.com/maps/@%f,%f,13z', $lat, $lon),
                    'icon_url' => sprintf('https://www.countryflags.io/%s/flat/64.png', $flg)
                 },
-                #'description' => sprintf('**%s**%s', $w->symbol_txt, (defined $aqi_num ? ' (Air quality: ' . $aqi_txt . ')' : '')),
                 'description' => sprintf('**%s**', $w->symbol_txt),
                 'thumbnail' => {
                    'url'    => sprintf('%s/%s.%s', $symbolurl, $w->symbol, $symboltype),
@@ -1273,55 +1270,6 @@ sub duration ($sec)
           ($gmt[2] ? ($gmt[5] || $gmt[7]                       ? ' ' : '').$gmt[2].'h' : '').
           ($gmt[1] ? ($gmt[5] || $gmt[7] || $gmt[2]            ? ' ' : '').$gmt[1].'m' : '').
           ($gmt[0] ? ($gmt[5] || $gmt[7] || $gmt[2] || $gmt[1] ? ' ' : '').$gmt[0].'s' : '');
-}
-
-sub aqi_by_coords ($lat, $lon)
-{
-   my $json = get('https://api.waqi.info/feed/geo:' . $lat . ';' . $lon . '/?token=' . $$config{'aqiapikey'});
-
-   if ($json)
-   {
-      my $aqidata = decode_json($json);
-
-      if ( $$aqidata{status} eq 'ok' )
-      {
-         my $i;
-         my @txt = ('Good', 'Moderate', 'Unhealthy for Sensitive Groups', 'Unhealthy', 'Very Unhealthy', 'Hazardous');
-         my $aqi = $$aqidata{data}{aqi};
-
-         given ( $aqi )
-         {
-            when ( $_ < 50 )
-            {
-               $i = 0;
-            }
-            when ( $_ < 100 )
-            {
-               $i = 1;
-            }
-            when ( $_ < 150 )
-            {
-               $i = 2;
-            }
-            when ( $_ < 200 )
-            {
-               $i = 3;
-            }
-            when ( $_ < 300 )
-            {
-               $i = 4;
-            }
-            when ( $_ >= 300 )
-            {
-               $i = 5;
-            }
-         }
-
-         return ($aqi, $txt[$i]);
-      }
-   }
-
-   return;
 }
 
 sub elev_by_coords ($lat, $lon)
