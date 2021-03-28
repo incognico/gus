@@ -994,12 +994,6 @@ sub discord_on_message_create
             my $delay  = $+{mins};
             my $text   = defined $+{text} ? $+{text} : "\N{U+23F0}";
 
-            unless ($target =~ /<@!?(\d+)>/)
-            {
-               react( $channel, $msgid, 'what' );
-               return;
-            }
-
             my $time;
 
             unless (defined $delay)
@@ -1042,6 +1036,12 @@ sub discord_on_message_create
                   react( $channel, $msgid, 'what' );
                   return;
                }
+            }
+
+            unless ($target =~ /<@!?(\d+)>/)
+            {
+               react( $channel, $msgid, 'what' );
+               return;
             }
 
             if ($time < time || $time > 7952342400)
