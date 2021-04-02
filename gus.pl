@@ -97,6 +97,7 @@ my $discord = Mojo::Discord->new(
 my $maps = {
    'ba_tram1'             => '<:flower:772815800712560660> HL: Blue Shift',
    'ba_tram_m'            => '<:flower:772815800712560660> HL: Blue Shift',
+   'ba_tram_mv2'          => '<:flower:772815800712560660> HL: Blue Shift',
    'bm_nightmare_a_final' => '<:scary:516921261688094720> Black Mesa Nightmare',
    'bm_sts'               => '<:sven:459617478365020203> Black Mesa Special Tactics Sector',
    'botparty'             => '<:omegalul:458685801706815489> Bot Party',
@@ -192,7 +193,7 @@ my $filestream = IO::Async::FileStream->new(
 
          if ( $line =~ /^mapend .+ [0-9][0-9]?$/ )
          {
-            say localtime(time) . " -- mapend: $line";
+            say localtime(time) . " => mapend: $line";
 
             my @data = split( ' ', $line );
 
@@ -215,7 +216,7 @@ my $filestream = IO::Async::FileStream->new(
          }
          elsif ( $line =~ /^status .+ [0-9][0-9]?$/ )
          {
-            say localtime(time) . " -- status: $line";
+            say localtime(time) . " => status: $line";
 
             my @data = split( ' ', $line );
 
@@ -287,8 +288,8 @@ my $filestream = IO::Async::FileStream->new(
 
             my $r = $gi->record_for_address($ip) if(!$$cache{$steamid}{cc} && $ip);
 
-            return if ($msg =~ /^\.(vc|cspitch) /);
-            return if ($msg =~ /^\/[a-z]$/);
+            return if ($msg =~ /^\.(?:vc|cspitch|lagc|lost|ping) /);
+            return if ($msg =~ /^[\/\.][a-z]$/);
 
             return if (exists $$cache{$steamid}{antispam} && $msg eq $$cache{$steamid}{antispam});
             $$cache{$steamid}{antispam} = $msg;
@@ -306,17 +307,29 @@ my $filestream = IO::Async::FileStream->new(
                 return;
             }
 
-            $msg = '_\*' . substr($msg, 4) . '\*_' if ($msg =~ /^\/me /);
+            my ($final, $clearcache);
 
-            my $clearcache;
-
-            my $final = "`$nick`  $msg";
-            if ($line =~ /^- /)
+            if ($line =~ /^\+ /)
             {
-               $final =~ s/^/<:gtfo:603609334781313037> /;
+               $final = '<:NyanPasu:562191812702240779> `' . $nick . '` _' . $msg . '_';
+            }
+            elsif ($line =~ /^- /)
+            {
+               $final = '<:gtfo:603609334781313037> `' . $nick . '` _' . $msg . '_';
                $clearcache++;
             }
-            $final =~ s/^/<:NyanPasu:562191812702240779> / if ($line =~ /^\+ /);
+            else
+            {
+               if ($msg =~ /^\/me /)
+               {
+                  $msg = '_' . substr($msg, 4) . '_';
+                  $final = '`' . $nick . '` ' . $msg;
+               }
+               else
+               {
+                  $final = '`' . $nick . '`  ' . $msg;
+               }
+            }
 
             $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if (!$$cache{$steamid}{cc} && $ip && $r->{country}{iso_code});
 
@@ -615,6 +628,12 @@ sub discord_on_message_create
                $lon = $input->{geometry}{location}{lng};
                $alt = elev_by_coords($lat, $lon);
                $tz  = (tz_by_coords($lat, $lon))[0];
+
+               unless ( $tz )
+               {
+                  react( $channel, $msgid, 'pepe' );
+                  return;
+               }
 
                for ($$input{address_components}->@*)
                {
@@ -1106,6 +1125,12 @@ sub discord_on_message_create
 
                $loc = $input->{formatted_address};
                $tz  = (tz_by_coords($input->{geometry}{location}{lat}, $input->{geometry}{location}{lng}))[0];
+
+               unless ( $tz )
+               {
+                  react( $channel, $msgid, 'pepe' );
+                  return;
+               }
             }
 
             my ($date, $time, $sname, $offset, $emoji, $m, $day, $month, $epoch, $week) = split(/#/, DateTime->now(time_zone => $tz)->strftime('%F#%T#%Z#%z#%l#%M#%A#%B#%s#%V'));
