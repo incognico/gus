@@ -312,10 +312,12 @@ my $filestream = IO::Async::FileStream->new(
             if ($line =~ /^\+ /)
             {
                $emoji = '<:NyanPasu:562191812702240779> ';
+               $msg = '_' . $msg . '_';
             }
             elsif ($line =~ /^- /)
             {
                $emoji = '<:gtfo:603609334781313037> ';
+               $msg = '_' . $msg . '_';
                $clearcache++;
             }
             elsif ($msg =~ /^\/me /)
