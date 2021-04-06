@@ -91,7 +91,7 @@ my $discord = Mojo::Discord->new(
    'verbose'   => 1,
    'logdir'    => "$ENV{HOME}/gus",
    'logfile'   => 'discord.log',
-   'loglevel'  => 'debug',
+   'loglevel'  => 'info',
 );
 
 my $maps = {
@@ -307,29 +307,23 @@ my $filestream = IO::Async::FileStream->new(
                 return;
             }
 
-            my ($final, $clearcache);
+            my ($final, $emoji, $clearcache) = ('', '', 0);
 
             if ($line =~ /^\+ /)
             {
-               $final = '<:NyanPasu:562191812702240779> `' . $nick . '` _' . $msg . '_';
+               $emoji = '<:NyanPasu:562191812702240779> ';
             }
             elsif ($line =~ /^- /)
             {
-               $final = '<:gtfo:603609334781313037> `' . $nick . '` _' . $msg . '_';
+               $emoji = '<:gtfo:603609334781313037> ';
                $clearcache++;
             }
-            else
+            elsif ($msg =~ /^\/me /)
             {
-               if ($msg =~ /^\/me /)
-               {
-                  $msg = '_' . substr($msg, 4) . '_';
-                  $final = '`' . $nick . '` ' . $msg;
-               }
-               else
-               {
-                  $final = '`' . $nick . '`  ' . $msg;
-               }
+               $msg = '_' . substr($msg, 4) . '_';
             }
+
+            $final = $emoji . '`' . $nick . '`  ' . $msg;
 
             $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if (!$$cache{$steamid}{cc} && $ip && $r->{country}{iso_code});
 
