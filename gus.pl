@@ -96,7 +96,6 @@ my $discord = Mojo::Discord->new(
 
 my $maps = {
    'ba_tram1'             => '<:flower:772815800712560660> HL: Blue Shift',
-   'ba_tram_m'            => '<:flower:772815800712560660> HL: Blue Shift',
    'ba_tram_mv2'          => '<:flower:772815800712560660> HL: Blue Shift',
    'bm_nightmare_a_final' => '<:scary:516921261688094720> Black Mesa Nightmare',
    'bm_sts'               => '<:sven:459617478365020203> Black Mesa Special Tactics Sector',
@@ -107,6 +106,8 @@ my $maps = {
    'escape_series_1a'     => ':runner: Escape Series: Part 1',
    'escape_series_2a'     => ':runner: Escape Series: Part 2',
    'escape_series_3a'     => ':runner: Escape Series: Part 3',
+   'f_island'             => ':island: Comfy, the other island map',
+   'f_island_v2'          => ':island: Comfy, the other island map',
    'hidoi_map1'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map',
    'hl_c01_a1'            => '<:flower:772815800712560660> Half-Life',
    'island'               => ':island: Comfy, island',
@@ -279,6 +280,9 @@ my $filestream = IO::Async::FileStream->new(
          else
          {
             $line =~ /<(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
+
+            return unless $3;
+
             say localtime(time) . " -> $line";
 
             my $nick    = $1;
