@@ -50,9 +50,9 @@ $ua->timeout( 3 );
 $ua->default_header('Accept-Encoding' => HTTP::Message::decodable);
 
 my ($guild, $users, $started, $ready, $readyc, $resumed, $resumedc)
-=  (undef,  undef,  time,     0,      0,       0,        0);
+=  (undef,  undef,  time,     0,      0,       0,        0        );
 my ($store, $storechanged, $lastmap, $retries, $maptime, $cache)
-=  ({},     0,             '',       0,        0,        {});
+=  ({},     0,             '',       0,        0,        {}    );
 
 my $config = {
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
@@ -200,9 +200,12 @@ my $filestream = IO::Async::FileStream->new(
 
             if ( $data[1] eq '_server_start' )
             {
+               $cache = {};
+
                my $add = '';
-               $add =  ' <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' if $lastmap;
+               $add = ' <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' if $lastmap;
                $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted**' . $add );
+
                return;
             }
 
@@ -277,18 +280,47 @@ my $filestream = IO::Async::FileStream->new(
 
             $lastmap = $data[1];
          }
+         elsif ( $line =~ /^plugin ([^ ]+) (.+)$/ )
+         {
+            return unless ($1 && defined $2);
+
+            say localtime(time) . " => plugin: $line";
+
+            my $caller = $1;
+            my $msg    = $2;
+
+            given ( $caller )
+            {
+               when ('Radio')
+               {
+                  $msg = ':musical_note: `' . $msg . '`';
+               }
+               default
+               {
+                  $msg = '<:sven:459617478365020203> `' . $caller . '`  ' . $msg;
+               }
+            }
+
+            my $message = {
+               content => $msg,
+               allowed_mentions => { parse => [] },
+            };
+
+            $discord->send_message( $$config{discord}{linkchan}, $message );
+         }
          else
          {
-            $line =~ /<(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
+            $line =~ /<(observer|alive|dead|player|\+|-)><(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
 
-            return unless $3;
+            return unless ($4 && defined $5);
 
             say localtime(time) . " -> $line";
 
-            my $nick    = $1;
-            my $ip      = $2;
-            my $steamid = $3;
-            my $msg     = $4;
+            my $status  = $1;
+            my $nick    = $2;
+            my $ip      = $3;
+            my $steamid = $4;
+            my $msg     = $5;
 
             my $r = $gi->record_for_address($ip) if(!$$cache{$steamid}{cc} && $ip);
 
@@ -313,21 +345,39 @@ my $filestream = IO::Async::FileStream->new(
 
             my ($final, $emoji, $clearcache) = ('', '', 0);
 
-            if ($line =~ /^\+ /)
+            given ( $status )
             {
-               $emoji = '<:NyanPasu:562191812702240779> ';
-               $msg = '_' . $msg . '_';
+               when ( 'observer' )
+               {
+                  $emoji = '<:KannaZooming:640195746444083200> ';
+               }
+               when ( 'alive' )
+               {
+                  $emoji = '<:ShyGalDelet:712015481997099138> ';
+               }
+               when ( 'dead' )
+               {
+                  $emoji = '<:rip:462250760038776832> ';
+               }
+               when ( '+' )
+               {
+                  return if ($$cache{$steamid}{active} && time - $$cache{$steamid}{active} < 21600 );
+
+                  $emoji = '<:NyanPasu:562191812702240779> ';
+                  $msg = '_' . $msg . '_';
+
+                  $$cache{$steamid}{active} = time;
+               }
+               when ( '-' )
+               {
+                  $emoji = '<:gtfo:603609334781313037> ';
+                  $msg = '_' . $msg . '_';
+
+                  $clearcache++;
+               }
             }
-            elsif ($line =~ /^- /)
-            {
-               $emoji = '<:gtfo:603609334781313037> ';
-               $msg = '_' . $msg . '_';
-               $clearcache++;
-            }
-            elsif ($msg =~ /^\/me /)
-            {
-               $msg = '_' . substr($msg, 4) . '_';
-            }
+
+            $msg = '_' . substr($msg, 4) . '_' if ($msg =~ /^\/me /);
 
             $final = $emoji . '`' . $nick . '`  ' . $msg;
 
