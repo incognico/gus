@@ -40,7 +40,7 @@ use MaxMind::DB::Reader;
 use Mojo::Discord;
 use Net::SRCDS::Queries;
 use Path::This '$THISDIR';
-use Term::Encoding qw(term_encoding);
+use Term::Encoding 'term_encoding';
 use URI::Escape;
 use Weather::METNO;
 use YAML::Tiny qw(LoadFile DumpFile);
@@ -175,7 +175,8 @@ open my $fh, '<', $$config{'fromsven'};
 my $filestream = IO::Async::FileStream->new(
    read_handle => $fh,
 
-   interval => 0.5,
+   read_all => 1,
+   interval => 1,
 
    on_initial => sub ($self, $)
    {
@@ -184,21 +185,24 @@ my $filestream = IO::Async::FileStream->new(
 
    on_read => sub ($self, $buffref, $)
    {
-      return unless ($discord->connected);
+      return unless $discord->connected;
 
       while ( $$buffref =~ s/^(.*\n)// )
       {
-         my $line = decode_utf8_lax($1);
+         my $line = decode_utf8_lax( $1 );
 
          chomp( $line );
 
-         if ( $line =~ /^mapend .+ [0-9][0-9]?$/ )
+         if ( $line =~ /^(?:\d+) mapend .+ [0-9][0-9]?$/ )
          {
             say localtime(time) . " => mapend: $line";
 
             my @data = split( ' ', $line );
 
-            if ( $data[1] eq '_server_start' )
+            $$cache{mapchanges}++;
+            $$cache{mapchangetime} = time;
+
+            if ( $data[2] eq '_server_start' )
             {
                $cache = {};
 
@@ -209,16 +213,16 @@ my $filestream = IO::Async::FileStream->new(
                return;
             }
 
-            return if ( $data[2] == 0 );
+            return if ( $data[3] == 0 );
 
             my ($after, $sec) = ('', 0);
             $sec   = time - $maptime if $maptime;
             $after = ' after `' . duration($sec) . '`' if ($sec > 30);
             $maptime = 0;
 
-            $discord->send_message( $$config{discord}{linkchan}, ":checkered_flag: Map `$data[1]` ended$after" );
+            $discord->send_message( $$config{discord}{linkchan}, ":checkered_flag: Map `$data[2]` ended$after" );
          }
-         elsif ( $line =~ /^status .+ [0-9][0-9]?$/ )
+         elsif ( $line =~ /^(?:\d+) status .+ [0-9][0-9]?$/ )
          {
             say localtime(time) . " => status: $line";
 
@@ -226,19 +230,19 @@ my $filestream = IO::Async::FileStream->new(
 
             $maptime = time-5;
 
-            if ($lastmap eq $data[1])
+            if ($lastmap eq $data[2])
             {
                $retries++;
             }
             else
             {
                $retries = 0;
-               $discord->status_update( { 'name' => 'SC on ' . $data[1], type => 0 } );
+               $discord->status_update( { 'name' => 'SC on ' . $data[2], type => 0 } );
             }
 
-            if ( $data[2] == 0 )
+            if ( $data[3] == 0 )
             {
-               $lastmap = $data[1];
+               $lastmap = $data[2];
                return;
             }
 
@@ -251,12 +255,12 @@ my $filestream = IO::Async::FileStream->new(
                 'fields' => [
                 {
                    'name'   => 'Map',
-                   'value'  => $data[1],
+                   'value'  => $data[2],
                    'inline' => \1,
                 },
                 {
                    'name'   => 'Players',
-                   'value'  => $data[2],
+                   'value'  => $data[3],
                    'inline' => \1,
                 },
                 ],
@@ -271,23 +275,27 @@ my $filestream = IO::Async::FileStream->new(
             
             $discord->send_message( $$config{discord}{linkchan}, $message );
 
-            if ( exists $$maps{$data[1]} && $data[1] ne $lastmap )
+            if ( exists $$maps{$data[2]} && $data[2] ne $lastmap )
             {
                my $s = '';
-               $s = 's' if ( $data[2] > 1 );
-               $discord->send_message( $$config{discord}{mainchan}, "**$$maps{$data[1]}** has started with **$data[2]** player$s!" );
+               $s = 's' if ( $data[3] > 1 );
+               $discord->send_message( $$config{discord}{mainchan}, "**$$maps{$data[2]}** has started with **$data[3]** player$s!" );
             }
 
-            $lastmap = $data[1];
+            $lastmap = $data[2];
          }
-         elsif ( $line =~ /^plugin ([^ ]+) (.+)$/ )
+         elsif ( $line =~ /^(\d+) plugin ([^ ]+) (.+)$/ )
          {
-            return unless ($1 && defined $2);
+            return unless ($2 && defined $3);
 
-            say localtime(time) . " => plugin: $line";
+            say localtime(time) . ' => plugin: ' . $line;
 
-            my $caller = $1;
-            my $msg    = $2;
+            my $ts     = $1;
+            my $caller = $2;
+            my $msg    = $3;
+
+            my $td = time - $ts;
+            say localtime(time) . ' !! warning: previous message desynced by: ' . $td . 's!' if ($td > 3);
 
             given ( $caller )
             {
@@ -310,17 +318,21 @@ my $filestream = IO::Async::FileStream->new(
          }
          else
          {
-            $line =~ /<(observer|alive|dead|player|\+|-)><(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
+            $line =~ /(\d+) <(observer|alive|dead|player|\+|-)><(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
 
-            return unless ($4 && defined $5);
+            return unless ($5 && defined $6);
 
             say localtime(time) . " -> $line";
 
-            my $status  = $1;
-            my $nick    = $2;
-            my $ip      = $3;
-            my $steamid = $4;
-            my $msg     = $5;
+            my $ts      = $1;
+            my $status  = $2;
+            my $nick    = $3;
+            my $ip      = $4;
+            my $steamid = $5;
+            my $msg     = $6;
+
+            my $td = time - $ts;
+            say localtime(time) . ' !! warning: previous message desynced by: ' . $td . 's!' if ($td > 3);
 
             my $r = $gi->record_for_address($ip) if(!$$cache{$steamid}{cc} && $ip);
 
@@ -349,7 +361,7 @@ my $filestream = IO::Async::FileStream->new(
             {
                when ( 'observer' )
                {
-                  $emoji = '<:KannaZooming:640195746444083200> ';
+                  $emoji = ':telescope: ';
                }
                when ( 'alive' )
                {
@@ -361,12 +373,14 @@ my $filestream = IO::Async::FileStream->new(
                }
                when ( '+' )
                {
-                  return if ($$cache{$steamid}{active} && time - $$cache{$steamid}{active} < 21600 );
+                  return if ($$cache{$steamid}{active} && time - $$cache{$steamid}{active} < 21600); # expire join cache after 6h to clean "ghost" leavers
 
                   $emoji = '<:NyanPasu:562191812702240779> ';
                   $msg = '_' . $msg . '_';
 
                   $$cache{$steamid}{active} = time;
+
+                  return if ($$cache{mapchanges} && $$cache{mapchanges} == 1 && time - $$cache{mapchangetime} < 60); # prevent join flood after Gus restart
                }
                when ( '-' )
                {
@@ -481,7 +495,7 @@ sub discord_on_message_create
          {
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
-            if ( $msg =~ s/<@!?(\d+)>/\@$$users{'users'}{$1}{'username'}/g ) # user/nick
+            if ( $msg =~ s/<@!?(\d+)>/\@$$users{'users'}{$1}{'username'}/g ) # user/nick # TODO: nick translation like below ($$member{'nick'})
             {
                $msg =~ s/(?:\R^)\@$$users{'users'}{$1}{'username'}/ >>> /m if ($1 == $$users{'id'});
             }
