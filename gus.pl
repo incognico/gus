@@ -195,7 +195,7 @@ my $filestream = IO::Async::FileStream->new(
 
          if ( $line =~ /^(?:\d+) mapend .+ [0-9][0-9]?$/ )
          {
-            say localtime(time) . " => mapend: $line";
+            say localtime(time) . ' => ' . $line;
 
             my @data = split( ' ', $line );
 
@@ -224,7 +224,7 @@ my $filestream = IO::Async::FileStream->new(
          }
          elsif ( $line =~ /^(?:\d+) status .+ [0-9][0-9]?$/ )
          {
-            say localtime(time) . " => status: $line";
+            say localtime(time) . ' => ' . $line;
 
             my @data = split( ' ', $line );
 
@@ -288,7 +288,7 @@ my $filestream = IO::Async::FileStream->new(
          {
             return unless ($2 && defined $3);
 
-            say localtime(time) . ' => plugin: ' . $line;
+            say localtime(time) . ' => ' . $line;
 
             my $ts     = $1;
             my $caller = $2;
@@ -322,7 +322,7 @@ my $filestream = IO::Async::FileStream->new(
 
             return unless ($5 && defined $6);
 
-            say localtime(time) . " -> $line";
+            say localtime(time) . ' -> ' . $line;
 
             my $ts      = $1;
             my $status  = $2;
