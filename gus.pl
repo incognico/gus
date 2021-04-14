@@ -204,7 +204,7 @@ my $filestream = IO::Async::FileStream->new(
 
             if ( $data[2] eq '_server_start' )
             {
-               $cache = {};
+               #$cache = {};
 
                my $add = '';
                $add = ' <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' if $lastmap;
@@ -222,7 +222,7 @@ my $filestream = IO::Async::FileStream->new(
 
             $discord->send_message( $$config{discord}{linkchan}, ":checkered_flag: Map `$data[2]` ended$after" );
          }
-         elsif ( $line =~ /^(?:\d+) status .+ [0-9][0-9]?$/ )
+         elsif ( $line =~ /^(?:\d+) status .+ [0-9][0-9]? .+$/ )
          {
             say localtime(time) . ' => ' . $line;
 
@@ -266,7 +266,8 @@ my $filestream = IO::Async::FileStream->new(
                 ],
             };
 
-            push $$embed{'fields'}->@*, { 'name' => 'Attempt',  'value' => '#' . ($retries+1), 'inline' => \1, } if ($retries > 0);
+            push $$embed{'fields'}->@*, { 'name' => 'Difficulty', 'value' => $1.'%',             'inline' => \1, } if ($line =~ /diff(?:iculty)?: (.+)%/);
+            push $$embed{'fields'}->@*, { 'name' => 'Attempt',    'value' => '#' . ($retries+1), 'inline' => \1, } if ($retries > 0);
 
             my $message = {
                'content' => '',
@@ -297,11 +298,42 @@ my $filestream = IO::Async::FileStream->new(
             my $td = time - $ts;
             say localtime(time) . ' !! warning: previous message desynced by: ' . $td . 's!' if ($td > 3);
 
+            $msg =~ s/`//g;
+            $msg =~ s/(\s|\R)+/ /g;
+            $msg =~ s/\@+everyone/everyone/g;
+            $msg =~ s/\@+here/here/g;
+
             given ( $caller )
             {
-               when ('Radio')
+               when ( $_ eq 'MapModule' || $_ eq 'ForceSurvival' || $_ eq 'SMaker' )
                {
-                  $msg = ':musical_note: `' . $msg . '`';
+                  my @data = split(/\\/, $msg);
+
+                  if ( $data[0] eq 'point_checkpoint' )
+                  {
+                     $msg = ( $$cache{$data[1]}{cc} ? ":flag_$$cache{$data[1]}{cc}:" : '<:sven:459617478365020203>' ) . ' <:ShyGalDelet:712015481997099138> `' . $data[2] . '`  _' . $data[3] . '_ <:sven:459617478365020203>';
+                  }
+                  else
+                  {
+                     continue;
+                  }
+               }
+               when ( 'Radio' )
+               {
+                  my @data = split(/\|/, $msg);
+
+                  $msg = ':musical_note: ' . ($data[2] eq '(none)' ? 'N' : ('Dj `' . $data[2] . '` is n')) . 'ow playing `' . $data[1] . '` on `' . $data[0] . '` :radio:';
+               }
+               when ( 'PartyMode' )
+               {
+                  if ( $msg =~ /LOL PARTY/ )
+                  {
+                     $msg = ':partying_face::tada: `' . $msg . '`';
+                  }
+                  else
+                  {
+                     $msg = ':partying_face::angry: `' . $msg . '`';
+                  }
                }
                default
                {
@@ -334,7 +366,11 @@ my $filestream = IO::Async::FileStream->new(
             my $td = time - $ts;
             say localtime(time) . ' !! warning: previous message desynced by: ' . $td . 's!' if ($td > 3);
 
-            my $r = $gi->record_for_address($ip) if(!$$cache{$steamid}{cc} && $ip);
+            if ( !$$cache{$steamid}{cc} && $ip )
+            {
+               my $r = $gi->record_for_address($ip);
+               $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if $r->{country}{iso_code};
+            }
 
             return if ($msg =~ /^\.(?:vc|cspitch|lagc|lost|ping) /);
             return if ($msg =~ /^[\/\.][a-z]$/);
@@ -373,7 +409,7 @@ my $filestream = IO::Async::FileStream->new(
                }
                when ( '+' )
                {
-                  return if ($$cache{$steamid}{active} && time - $$cache{$steamid}{active} < 21600); # expire join cache after 6h to clean "ghost" leavers
+                  return if ($$cache{$steamid}{active} && time - $$cache{$steamid}{active} < 43200); # expire join cache after 12h of "activity"
 
                   $emoji = '<:NyanPasu:562191812702240779> ';
                   $msg = '_' . $msg . '_';
@@ -384,6 +420,12 @@ my $filestream = IO::Async::FileStream->new(
                }
                when ( '-' )
                {
+                  if ( $nick eq '\orphan' )
+                  {
+                     delete $$cache{$steamid};
+                     return;
+                  }
+
                   $emoji = '<:gtfo:603609334781313037> ';
                   $msg = '_' . $msg . '_';
 
@@ -394,8 +436,6 @@ my $filestream = IO::Async::FileStream->new(
             $msg = '_' . substr($msg, 4) . '_' if ($msg =~ /^\/me /);
 
             $final = $emoji . '`' . $nick . '`  ' . $msg;
-
-            $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if (!$$cache{$steamid}{cc} && $ip && $r->{country}{iso_code});
 
             my $message = {
                content => ':' . ($$cache{$steamid}{cc} ? ('flag_' . $$cache{$steamid}{cc}) : 'gay_pride_flag') . ': ' . $final,
