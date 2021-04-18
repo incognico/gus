@@ -189,6 +189,8 @@ my $filestream = IO::Async::FileStream->new(
 
       while ( $$buffref =~ s/^(.*\n)// )
       {
+         $$cache{msgin}++;
+
          my $line = decode_utf8_lax( $1 );
 
          chomp( $line );
@@ -267,7 +269,7 @@ my $filestream = IO::Async::FileStream->new(
             };
 
             push $$embed{'fields'}->@*, { 'name' => 'Difficulty', 'value' => $1.'%',             'inline' => \1, } if ($line =~ /diff(?:iculty)?: (.+)%/);
-            push $$embed{'fields'}->@*, { 'name' => 'Attempt',    'value' => '#' . ($retries+1), 'inline' => \1, } if ($retries > 0);
+            push $$embed{'fields'}->@*, { 'name' => 'Attempt',    'value' => '#' . ($retries+1), 'inline' => \1, } if ($retries);
 
             my $message = {
                'content' => '',
@@ -305,34 +307,40 @@ my $filestream = IO::Async::FileStream->new(
 
             given ( $caller )
             {
-               when ( $_ eq 'MapModule' || $_ eq 'ForceSurvival' || $_ eq 'SMaker' )
+               when ( 'Radio' )
+               {
+                  my @data = split(/\|/, $msg, 3);
+
+                  $msg = ':musical_note: ' . ($data[2] eq '(none)' ? 'N' : ('Dj `' . $data[2] . '` is n')) . 'ow playing `' . $data[1] . '` on `' . $data[0] . '`';
+               }
+               when ( [qw(MapModule ForceSurvival SMaker)] )
                {
                   my @data = split(/\\/, $msg);
 
                   if ( $data[0] eq 'point_checkpoint' )
                   {
-                     $msg = ( $$cache{$data[1]}{cc} ? ":flag_$$cache{$data[1]}{cc}:" : '<:sven:459617478365020203>' ) . ' <:ShyGalDelet:712015481997099138> `' . $data[2] . '`  _' . $data[3] . '_ <:sven:459617478365020203>';
+                     $msg = ( $$cache{$data[1]}{cc} ? ":flag_$$cache{$data[1]}{cc}:" : ':triangular_flag_on_post:' ) . ' <:ShyGalDelet:712015481997099138> `' . $data[2] . '`  _' . $data[3] . '_ <:sven:459617478365020203>';
                   }
                   else
                   {
                      continue;
                   }
                }
-               when ( 'Radio' )
+               when ( 'Trails' )
                {
-                  my @data = split(/\|/, $msg);
+                  my @data = split(/\\/, $msg);
 
-                  $msg = ':musical_note: ' . ($data[2] eq '(none)' ? 'N' : ('Dj `' . $data[2] . '` is n')) . 'ow playing `' . $data[1] . '` on `' . $data[0] . '` :radio:';
+                  $msg = ':dna: `' . $data[0] . '` won the trail challenge with a score of `' . $data[1] . '`';
                }
                when ( 'PartyMode' )
                {
                   if ( $msg =~ /LOL PARTY/ )
                   {
-                     $msg = ':partying_face::tada: `' . $msg . '`';
+                     $msg = ':partying_face: :tada: `' . $msg . '`';
                   }
                   else
                   {
-                     $msg = ':partying_face::angry: `' . $msg . '`';
+                     $msg = ':partying_face: :angry: `' . $msg . '`';
                   }
                }
                default
@@ -409,6 +417,8 @@ my $filestream = IO::Async::FileStream->new(
                }
                when ( '+' )
                {
+                  $$cache{today}{$steamid}++;
+
                   return if ($$cache{$steamid}{active} && time - $$cache{$steamid}{active} < 43200); # expire join cache after 12h of "activity"
 
                   $emoji = '<:NyanPasu:562191812702240779> ';
@@ -423,6 +433,7 @@ my $filestream = IO::Async::FileStream->new(
                   if ( $nick eq '\orphan' )
                   {
                      delete $$cache{$steamid};
+                     $$cache{ghosted}++;
                      return;
                   }
 
@@ -495,6 +506,14 @@ my $timer = IO::Async::Timer::Periodic->new(
             delete $$store{reminders}{$k};
          }
       }
+
+      my $day = (localtime(time))[6];
+
+      if (!defined $$cache{day} || $day != $$cache{day})
+      {
+         $$cache{day} = $day;
+         delete $$cache{today};
+      }
    },
 );
 $timer->start;
@@ -537,7 +556,7 @@ sub discord_on_message_create
             $msg =~ s/%/%%/g;
             if ( $msg =~ s/<@!?(\d+)>/\@$$users{'users'}{$1}{'username'}/g ) # user/nick # TODO: nick translation like below ($$member{'nick'})
             {
-               $msg =~ s/(?:\R^)\@$$users{'users'}{$1}{'username'}/ >>> /m if ($1 == $$users{'id'});
+               $msg =~ s/(?:\R^)\@$$users{'users'}{$1}{'username'}/ >>> /m if ($1 == $$users{'id'}); # prob not needed anymore now that discord removed the weird quoting thing
             }
             $msg =~ s/(\R|\s)+/ /gn;
             $msg =~ s/<#(\d+)>/#$$guild{'channels'}{$1}{'name'}/g; # channel
@@ -551,10 +570,17 @@ sub discord_on_message_create
             $nick =~ s/%/%%/g;
             $nick =~ s/(\R|\s)+/ /gn;
 
-            say localtime(time) . " <- <$nick> $msg";
-
             open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'});
-            say $tosvenfh "(DISCORD) $nick: $msg";
+
+            # TODO: Make this work and add limit of 3 times or something
+            while ( $msg =~ /\G(.{0,126}(?:.\z))/sg )
+            {
+               say localtime(time) . " <- <$nick> $1";
+               say $tosvenfh "(DISCORD) $nick: $1";
+
+               $$cache{msgout}++;
+            }
+
             close $tosvenfh;
          }
          elsif ( $msg =~ /^!player (.+)/i )
@@ -640,7 +666,7 @@ sub discord_on_message_create
                     },
                     {
                        'name'   => 'Last Seen',
-                       'value'  => defined $r->[16] ? $r->[16] : 'Unknown',
+                       'value'  => $$cache{'STEAM_'.$r->[1]} ? 'Now!' : ((exists $$cache{today} && $$cache{today}{'STEAM_'.$r->[1]}) ? 'Today' : (defined $r->[16] ? $r->[16] : 'Unknown')),
                        'inline' => \1,
                     },
                     ],
@@ -1293,7 +1319,7 @@ sub discord_on_message_create
          {
             my $embed = {
                'color' => '15844367',
-                'title' => '**:chart_with_upwards_trend: Discord Connection Statistics**',
+                'title' => '**:chart_with_upwards_trend: Statistics**',
                 'fields' => [
                  {
                     'name'   => 'Gus Uptime',
@@ -1318,6 +1344,26 @@ sub discord_on_message_create
                  {
                     'name'   => 'Resumed',
                     'value'  => $resumedc . ' time' . ($resumedc == 1 ? '' : 's'),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Map Changes',
+                    'value'  => $$cache{mapchanges} ? $$cache{mapchanges} : 0,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Relay Sent',
+                    'value'  => $$cache{msgout} ? $$cache{msgout} : 0,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Relay Received',
+                    'value'  => $$cache{msgin} ? $$cache{msgin} : 0,
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Ghost Leavers',
+                    'value'  => $$cache{ghosted} ? $$cache{ghosted} : 0,
                     'inline' => \1,
                  },
                  ],
