@@ -209,7 +209,7 @@ my $filestream = IO::Async::FileStream->new(
                #$cache = {};
 
                my $add = '';
-               $add = ' <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' if $lastmap;
+               $add = ' <:wojakrage:800709248500891648> Last map was: `' . $lastmap . '`' if ($lastmap && $lastmap ne '_server_start');
                $discord->send_message( $$config{discord}{linkchan}, '<:Surprised:640195746963914802> **Server restarted**' . $add );
 
                return;
@@ -329,8 +329,9 @@ my $filestream = IO::Async::FileStream->new(
                when ( 'Trails' )
                {
                   my @data = split(/\\/, $msg);
+                  my $names = join('` & `', @data[1..$#data]);
 
-                  $msg = ':dna: `' . $data[0] . '` won the trail challenge with a score of `' . $data[1] . '`';
+                  $msg = ':dna: Trails: `' . $names . '` scored `' . $data[0] . '` points' . ($#data > 1 ? ' (tied)' : '');
                }
                when ( 'PartyMode' )
                {
@@ -572,7 +573,7 @@ sub discord_on_message_create
 
             open (my $tosvenfh, '>>:encoding(UTF-8)', $$config{'tosven'});
 
-            # TODO: Make this work and add limit of 3 times or something
+            # TODO: Make this work and add limit of 3 lines or something
             while ( $msg =~ /\G(.{0,126}(?:.\z))/sg )
             {
                say localtime(time) . " <- <$nick> $1";
@@ -583,9 +584,10 @@ sub discord_on_message_create
 
             close $tosvenfh;
          }
-         elsif ( $msg =~ /^!player (.+)/i )
+         elsif ( $msg =~ /^!player ([^\*]+)(\*)?$/i )
          {
-            my $param = $1;
+            my $param   = $1;
+            my $orderfl = ($2 ? 1 : 0);
             my ($stmt, @bind, $r);
 
             my $nsa;
@@ -593,13 +595,13 @@ sub discord_on_message_create
 
             if ( $param =~ /^STEAM_(0:[01]:[0-9]+)/ )
             {
-               $stmt = "SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
+               $stmt = 'SELECT * FROM stats WHERE steamid = ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1';
                @bind = ( "$1" );
             }
             else
             {
-               $stmt = "SELECT * FROM stats WHERE name LIKE ? ORDER BY datapoints DESC, date(seen) DESC LIMIT 1";
-               @bind = ( "%$1%" );
+               $stmt = 'SELECT * FROM stats WHERE name LIKE ? ORDER BY' . ($orderfl ? '' : ' datapoints DESC,') . ' date(seen) DESC LIMIT 1';
+               @bind = ( "%$param%" );
             }
 
             $r = $dbh->selectrow_arrayref( $stmt, {}, @bind );
@@ -1523,6 +1525,8 @@ sub react ($channel, $msgid, $reaction)
 sub quit ($)
 {
    DumpFile($$config{store}, $store);
-   say "\n" . 'Saved.';
+   say "\n" . 'Saved $store.';
+   $discord->disconnect('Quit', 1000);
+   say 'Disconnected.';
    exit;
 }
