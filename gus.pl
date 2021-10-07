@@ -71,7 +71,8 @@ my $config = {
       linkchan   => 458683388887302155,
       mainchan   => 458323696910598167,
       mediachan  => 615139520135954453,
-      vipchan    => 748823540496597013,
+      #vipchan    => 748823540496597013,
+      vipchan    => 0,
       ayayachan  => 459345843942588427,
       nocmdchans => [706113584626663475, 610862900357234698, 698803767512006677],
 
@@ -108,6 +109,7 @@ my $maps = {
    'escape_series_3a'     => ':runner: Escape Series: Part 3',
    'f_island'             => ':island: Comfy, the other island map',
    'f_island_v2'          => ':island: Comfy, the other island map',
+   'fallguys'             => ':person_doing_cartwheel::person_doing_cartwheel: Fall Guys',
    'hidoi_map1'           => '<:BAKA:603609334550888448> ....(^^;) Hidoi Map',
    'hl_c01_a1'            => '<:flower:772815800712560660> Half-Life',
    'island'               => ':island: Comfy, island',
@@ -329,9 +331,19 @@ my $filestream = IO::Async::FileStream->new(
                when ( 'Trails' )
                {
                   my @data = split(/\\/, $msg);
-                  my $names = join('` & `', @data[1..$#data]);
 
-                  $msg = ':dna: Trails: `' . $names . '` scored `' . $data[0] . '` points' . ($#data > 1 ? ' (tied)' : '');
+                  if ( $data[0] eq 'score')
+                  {
+                     my $names = join('` & `', @data[2..$#data]);
+
+                     $msg = ':dna: Trails: `' . $names . '` scored `' . $data[1] . '` points' . ($#data > 2 ? ' (tied)' : '');
+                  }
+                  elsif ( $data[0] eq 'rambo')
+                  {
+                     my $text = join(' ', @data[1..$#data]);
+
+                     $msg = ':dna: Trails: `' . $text . '`'; 
+                  }
                }
                when ( 'PartyMode' )
                {
@@ -359,7 +371,7 @@ my $filestream = IO::Async::FileStream->new(
          }
          else
          {
-            $line =~ /(\d+) <(observer|alive|dead|player|\+|-)><(.+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
+            $line =~ /(\d+) <(observer|alive|dead|player|\+|-)><([0-9a-f]+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
 
             return unless ($5 && defined $6);
 
@@ -367,7 +379,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my $ts      = $1;
             my $status  = $2;
-            my $nick    = $3;
+            my $nick    = pack('H*', $3);
             my $ip      = $4;
             my $steamid = $5;
             my $msg     = $6;
@@ -381,7 +393,7 @@ my $filestream = IO::Async::FileStream->new(
                $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if $r->{country}{iso_code};
             }
 
-            return if ($msg =~ /^\.(?:vc|cspitch|lagc|lost|ping) /);
+            return if ($msg =~ /^\.(?:vc|cspitch|lagc|lost|ping) /i);
             return if ($msg =~ /^[\/\.][a-z]$/);
 
             return if (exists $$cache{$steamid}{antispam} && $msg eq $$cache{$steamid}{antispam});
@@ -519,7 +531,7 @@ my $timer = IO::Async::Timer::Periodic->new(
 );
 $timer->start;
 
-my $loop = IO::Async::Loop::Mojo->new();
+my $loop = IO::Async::Loop::Mojo->new;
 
 $loop->add($filestream);
 $loop->add($timer);
@@ -846,7 +858,7 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, $message );
          }
-         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{vipchan} )
+         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{vipchan})
          {
             my $type = defined $1 ? lc($1) : 'random';
             $type =~ s/ //g;
@@ -1313,6 +1325,10 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, $message );
          }
+         elsif ( $msg =~ /^!dot/i )
+         {
+            $discord->send_message( $channel, 'https://korea-dpr.org/dot/?' . time );
+         }
          elsif ( $msg =~ /^!help/i )
          {
             $discord->send_message( $channel, 'https://twlz.lifeisabug.com/gus' );
@@ -1506,7 +1522,7 @@ sub getstatus ()
 
    my $q = Net::SRCDS::Queries->new(
       encoding => $encoding,
-      timeout  => $maptime ? 1.5 : 0.5,
+      timeout  => $maptime ? 0.5 : 0.25,
    );
 
    $q->add_server( $addr, $port );
