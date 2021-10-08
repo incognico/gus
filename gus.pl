@@ -371,7 +371,7 @@ my $filestream = IO::Async::FileStream->new(
          }
          else
          {
-            $line =~ /(\d+) <(observer|alive|dead|player|\+|-)><([0-9a-f]+?)><(?:(.+?):.+?)?><(.+?)> (.+)/;
+            $line =~ /^([0-9]+) <(observer|alive|dead|player|\+|-)>\\<(.+)>\\<(?:([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):[0-9]+)?><(STEAM_0:[01]:[0-9]+)> (.+)$/;
 
             return unless ($5 && defined $6);
 
@@ -379,7 +379,7 @@ my $filestream = IO::Async::FileStream->new(
 
             my $ts      = $1;
             my $status  = $2;
-            my $nick    = pack('H*', $3);
+            my $nick    = $3;
             my $ip      = $4;
             my $steamid = $5;
             my $msg     = $6;
