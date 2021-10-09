@@ -835,7 +835,7 @@ sub discord_on_message_create
                  },
                  {
                     'name'   => 'Wind',
-                    'value'  => sprintf('%s, %.2g m/s from %s', $w->windspeed_bft_txt, $w->windspeed_ms, $w->windfrom_dir),
+                    'value'  => sprintf('%s, %.2g m/s from %s', $w->windspeed_bft_txt, $w->windspeed_ms, $w->windfrom_dir_utf8arrow),
                     'inline' => \1,
                  },
                  {
