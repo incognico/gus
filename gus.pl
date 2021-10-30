@@ -53,6 +53,8 @@ my ($guild, $users, $started, $ready, $readyc, $resumed, $resumedc)
 =  (undef,  undef,  time,     0,      0,       0,        0        );
 my ($store, $storechanged, $lastmap, $retries, $maptime, $cache)
 =  ({},     0,             '',       0,        0,        {}    );
+my ($emojis)
+=  ({}     );
 
 my $config = {
    fromsven     => "$ENV{HOME}/sc5/svencoop/scripts/plugins/store/_fromsven.txt",
@@ -405,6 +407,29 @@ my $filestream = IO::Async::FileStream->new(
             $msg =~ s/\@+everyone/everyone/g;
             $msg =~ s/\@+here/here/g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
+
+            my @m = $msg =~ /:([^:.]+):/g;
+            for (@m)
+            {
+               my $e = $_;
+               $e =~ s/\\_/_/g if ($e =~ /\\_/);
+
+               if (exists $$emojis{$e})
+               {
+                  if ($$emojis{$e}{animated})
+                  {
+                     $msg =~ s/:\Q$_\E:/<a:$e:$$emojis{$e}{id}>/g;
+                  }
+                  else
+                  {
+                     $msg =~ s/:\Q$_\E:/<:$e:$$emojis{$e}{id}>/g;
+                  }
+               }
+               else
+               {
+                  $msg =~ s/:\Q$_\E:/:$e:/g;
+               }
+            }
 
             if ($msg =~ /^!verify/ )
             {
@@ -1429,7 +1454,16 @@ sub discord_on_ready ()
 
 sub discord_on_guild_create ()
 {
-   $discord->gw->on('GUILD_CREATE' => sub ($gw, $hash) { $guild = $discord->get_guild($$config{'discord'}{'guild_id'}); });
+   $discord->gw->on('GUILD_CREATE' => sub ($gw, $hash)
+   {
+      $guild = $discord->get_guild($$config{'discord'}{'guild_id'});
+
+      for (keys $$guild{'emojis'}->%*)
+      {
+         $$emojis{$$guild{emojis}{$_}{name}}{id}       = $_;
+         $$emojis{$$guild{emojis}{$_}{name}}{animated} = $$guild{emojis}{$_}{animated};
+      }
+   });
 
    return;
 }
