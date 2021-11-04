@@ -833,7 +833,7 @@ sub discord_on_message_create
                 'author' => {
                    'name'     => sprintf('Weather for %s', $loc),
                    'url'      => sprintf('https://www.google.com/maps/@%f,%f,13z', $lat, $lon),
-                   'icon_url' => sprintf('https://www.countryflags.io/%s/flat/64.png', $flg)
+                   'icon_url' => sprintf('https://distfiles.lifeisabug.com/circle-flags/flags/%s.png', $flg),
                 },
                 'description' => sprintf('**%s**', $w->symbol_txt),
                 'thumbnail' => {
