@@ -171,6 +171,7 @@ discord_on_ready();
 discord_on_guild_create();
 discord_on_resumed();
 discord_on_message_create();
+discord_on_message_delete();
 
 $discord->init();
 
@@ -403,7 +404,7 @@ my $filestream = IO::Async::FileStream->new(
 
             $nick =~ s/`//g;
 
-            $msg =~ s/(\s|\R)+/ /g;
+            $msg =~ s/(\s|\R|\N{U+1160})+/ /g;
             $msg =~ s/\@+everyone/everyone/g;
             $msg =~ s/\@+here/here/g;
             $msg =~ s/$discord_markdown_pattern/\\$1/g;
@@ -512,6 +513,19 @@ my $timer = IO::Async::Timer::Periodic->new(
       {
          delete $$store{steamidqueue}{$_} unless (exists $$store{steamidqueue}{$_}{ts} && (($$store{steamidqueue}{$_}{ts} + 3600) > time));
          $storechanged = 1;
+      }
+
+      if (int(rand(10)) == 0)
+      {
+         for (keys $$cache{msgpair}->%*)
+         {
+            my $c = $_;
+
+            for (keys $$cache{msgpair}{$c}->%*)
+            {
+               delete $$cache{msgpair}{$c}{$_} unless (exists $$cache{msgpair}{$c}{$_}{ts} && (($$cache{msgpair}{$c}{$_}{ts} + 259200) > time));
+            }
+         }
       }
 
       return unless (defined $$store{reminders} && $discord->connected);
@@ -670,6 +684,9 @@ sub discord_on_message_create
                my $personaname = $$result{'response'}{'players'}->[0]{personaname};
                $personaname =~ s/$discord_markdown_pattern/\\$1/g;
 
+               my $nickname = decode_utf8_lax($r->[2]);
+               $nickname =~ s/$discord_markdown_pattern/\\$1/g;
+
                my $embed = {
                   'color' => '15844367',
                   'footer' => {
@@ -685,7 +702,7 @@ sub discord_on_message_create
                    'fields' => [
                    {
                       'name'   => 'Name',
-                      'value'  => "**[".decode_utf8_lax($r->[2])."](".$$result{'response'}{'players'}->[0]{'profileurl'}." \"$personaname\")**",
+                      'value'  => '**[' . $nickname . '](' . $$result{'response'}{'players'}->[0]{'profileurl'} . ' "' . $personaname . '")**',
                       'inline' => \1,
                     },
                     {
@@ -730,7 +747,7 @@ sub discord_on_message_create
                   'embed' => $embed,
                };
 
-               $discord->send_message( $channel, $message );
+               $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
             }
             else
             {
@@ -754,7 +771,7 @@ sub discord_on_message_create
                   $t = '(started **' . duration(time-$maptime) . "** ago$a) " if ($maptime && $$infos{'players'});
                   my $message = "Map: **$$infos{'map'}** $t ${d}Players: **$$infos{'players'}**/$$infos{'max'}";
 
-                  $discord->send_message( $channel, $message );
+                  $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
                }
             });
          }
@@ -881,7 +898,7 @@ sub discord_on_message_create
                'embed' => $embed,
             };
 
-            $discord->send_message( $channel, $message );
+            $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
          elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{vipchan})
          {
@@ -935,16 +952,16 @@ sub discord_on_message_create
             {
                if ( defined $$ud{list}[0]{definition} )
                {
-                   my $res = '';
+                  my $res = '';
 
-                   for (0..3)
-                   {
-                      $$ud{list}[$_]{definition} =~ s/\s+/ /g;
-                      $res .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 665) ? substr($$ud{list}[$_]{definition}, 0, 666) . '...' : $$ud{list}[$_]{definition});
-                      last unless (defined $$ud{list}[$_+1]{definition});
-                   }
+                  for (0..3)
+                  {
+                     $$ud{list}[$_]{definition} =~ s/\s+/ /g;
+                     $res .= sprintf("(%d) %s:: %s\n", $_+1, (lc($$ud{list}[$_]{word}) ne lc($input)) ? $$ud{list}[$_]{word} . ' ' : '', (length($$ud{list}[$_]{definition}) > 665) ? substr($$ud{list}[$_]{definition}, 0, 666) . '...' : $$ud{list}[$_]{definition});
+                     last unless (defined $$ud{list}[$_+1]{definition});
+                  }
 
-                   $discord->send_message( $channel, "```asciidoc\n$res```" );
+                  $discord->send_message( $channel, "```asciidoc\n$res```", sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
                }
                else
                {
@@ -1034,7 +1051,7 @@ sub discord_on_message_create
                   'embed' => $embed,
                };
 
-               $discord->send_message( $channel, $message );
+               $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
             }
             else
             {
@@ -1049,7 +1066,7 @@ sub discord_on_message_create
             $msg =~ s/(\[\s\]\s[^\[\]]+)+?\s?/push @x,$1/eg;
             $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
 
-            $discord->send_message( $channel, join '', @x );
+            $discord->send_message( $channel, join('', @x), sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
          elsif ( $msg =~ /^!(set|get) (tz|steamid) ?(.*)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
@@ -1348,15 +1365,15 @@ sub discord_on_message_create
                'embed' => $embed,
             };
 
-            $discord->send_message( $channel, $message );
+            $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
          elsif ( $msg =~ /^!dot/i )
          {
-            $discord->send_message( $channel, 'https://korea-dpr.org/dot/?' . time );
+            $discord->send_message( $channel, 'https://korea-dpr.org/dot/?' . time, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
          elsif ( $msg =~ /^!help/i )
          {
-            $discord->send_message( $channel, 'https://twlz.lifeisabug.com/gus' );
+            $discord->send_message( $channel, 'https://twlz.lifeisabug.com/gus', sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
          elsif ( $msg =~ /^!uptime/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) && $id == $$config{discord}{owner_id} )
          {
@@ -1409,6 +1426,11 @@ sub discord_on_message_create
                     'value'  => $$cache{ghosted} ? $$cache{ghosted} : 0,
                     'inline' => \1,
                  },
+                 {
+                    'name'   => 'Trolldeletes',
+                    'value'  => $$cache{trolldeletes} ? $$cache{trolldeletes} : 0,
+                    'inline' => \1,
+                 },
                  ],
             };
 
@@ -1419,6 +1441,24 @@ sub discord_on_message_create
 
             $discord->send_message( $channel, $message );
          }
+      }
+   });
+
+   return;
+}
+
+sub discord_on_message_delete
+{
+   $discord->gw->on('MESSAGE_DELETE' => sub ($gw, $hash)
+   {
+      my $msgid    = $hash->{'id'};
+      my $channel  = $hash->{'channel_id'};
+
+      if (exists $$cache{msgpair}{$channel}{$msgid}{id})
+      {
+         $discord->delete_message( $channel, $$cache{msgpair}{$channel}{$msgid}{id} );
+         delete $$cache{msgpair}{$channel}{$msgid};
+         $$cache{trolldeletes}++;
       }
    });
 
