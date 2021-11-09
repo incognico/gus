@@ -1589,7 +1589,7 @@ sub cc_by_coords ($lat, $lon)
       return lc($$nomdata{address}{country_code}) if (exists $$nomdata{address}{country_code});
    }
 
-   return;
+   return 'xx';
 }
 
 sub verify ($steamid)
