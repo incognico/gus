@@ -777,7 +777,7 @@ sub discord_on_message_create
          }
          elsif ( $msg =~ /^!w(?:eather)? ?(.+)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
-            my ($alt, $flg, $loc, $lat, $lon, $tz) = (0, 'white');
+            my ($alt, $flg, $loc, $lat, $lon, $tz) = (0, 'xx');
 
             unless (defined $1)
             {
@@ -821,10 +821,18 @@ sub discord_on_message_create
                   return;
                }
 
+               my $found;
+
                for ($$input{address_components}->@*)
                {
-                  $flg = lc($_->{short_name}) if ('country' ~~ $$_{types}->@*);
+                  if ('country' ~~ $$_{types}->@*)
+                  {
+                     $flg = lc($_->{short_name});
+                     $found++;
+                  }
                }
+
+               $flg = cc_by_coords($lat, $lon) unless $found;
 
                $$store{users}{$id}{weather}           = $loc;
                $$store{users}{$id}{weather_priv}{lat} = $lat;
@@ -1566,6 +1574,19 @@ sub tz_by_coords ($lat, $lon)
    {
       my $tzdata = decode_json($json);
       return ($$tzdata{timeZoneId}, $$tzdata{timeZoneName}) if ($$tzdata{status} eq 'OK' && DateTime::TimeZone->is_valid_name($$tzdata{timeZoneId}));
+   }
+
+   return;
+}
+
+sub cc_by_coords ($lat, $lon)
+{
+   my $json = get('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' . $lat . '&lon=' . $lon);
+
+   if ($json)
+   {
+      my $nomdata = decode_json($json);
+      return lc($$nomdata{address}{country_code}) if (exists $$nomdata{address}{country_code});
    }
 
    return;
