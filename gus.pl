@@ -146,10 +146,12 @@ my $maps = {
 };
 
 my $reactions = {
-   'green' => ':greentick:712004372678049822',
-   'red'   => ':redtick:712004372707541003',
-   'what'  => ':what:660870075607416833',
-   'pepe'  => ':PepeHands:557286043548778499',
+   'green'  => ':greentick:712004372678049822',
+   'red'    => ':redtick:712004372707541003',
+   'what'   => ':what:660870075607416833',
+   'pepe'   => ':PepeHands:557286043548778499',
+   'map'    => "\N{U+1F5FA}",
+   'change' => "\N{U+1F504}",
 };
 
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
@@ -761,7 +763,15 @@ sub discord_on_message_create
 
                unless ( defined $infos )
                {
-                  react( $channel, $msgid, 'pepe' );
+                  if ( $$cache{mapchanges} && time - $$cache{mapchangetime} <= 10 )
+                  {
+                     react( $channel, $msgid, 'map' );
+                     react( $channel, $msgid, 'change' );
+                  }
+                  else
+                  {
+                     react( $channel, $msgid, 'pepe' );
+                  }
                }
                else
                {
@@ -1624,7 +1634,7 @@ sub getstatus ()
    my $infos = $q->get_all;
 
    return $$infos{$ap}{'info'} if ( defined $$infos{$ap}{'info'} );
-   return;
+   return undef;
 }
 
 sub react ($channel, $msgid, $reaction)
