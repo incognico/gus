@@ -23,10 +23,10 @@ binmode( STDOUT, ":encoding(UTF-8)" );
 
 local $SIG{INT} = \&quit;
 
-use DBI;
 use DBD::SQLite::Constants ':file_open';
-use DateTime;
+use DBI;
 use DateTime::TimeZone;
+use DateTime;
 use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
 use Geo::Coder::Google;
 use IO::Async::FileStream;
@@ -68,6 +68,7 @@ my $config = {
    geo          => $THISDIR . '/GeoLite2-City.mmdb',
    store        => $THISDIR . '/.store.yml',
    omdbapikey   => ,
+   waappid      => '',
 
    discord => {
       linkchan   => 458683388887302155,
@@ -152,6 +153,7 @@ my $reactions = {
    'pepe'   => ':PepeHands:557286043548778499',
    'map'    => "\N{U+1F5FA}",
    'change' => "\N{U+1F504}",
+   'wait'   => "\N{U+23F3}",
 };
 
 #my $discord_markdown_pattern = qr/(?<!\\)(`|@|:|#|\||__|\*|~|>)/;
@@ -1123,12 +1125,12 @@ sub discord_on_message_create
                      $$store{steamidqueue}{$value}{ts}        = time;
                      $storechanged = 1;
 
-                     $discord->create_reaction( $channel, $msgid, "\N{U+23F3}" );
+                     react( $channel, $msgid, 'wait' );
                      $discord->send_message( $channel, "<\@$id> Within the next hour, join the twlz Sven Co-op server and type `!verify` in chat to verify your Steam ID." );
                   }
                   elsif ( exists $$store{steamidqueue}{$value} )
                   {
-                     $discord->create_reaction( $channel, $msgid, "\N{U+23F3}" );
+                     react( $channel, $msgid, 'wait' );
                   }
                   else
                   {
@@ -1292,7 +1294,7 @@ sub discord_on_message_create
             }
             else
             {
-               $discord->send_message( $channel, "<\@$id> <:greentick:712004372678049822> `T-minus ". duration($time - time) . '`' );
+               $discord->send_message( $channel, "<\@$id> <:greentick:712004372678049822> `Reminding you in: ". duration($time - time) . '`' );
             }
          }
          elsif ( $msg =~ /^!time ?(.+)?/i )
@@ -1384,6 +1386,35 @@ sub discord_on_message_create
             };
 
             $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
+         }
+         elsif ( $msg =~ /^!q (.+)/i && $channel != $$config{discord}{mainchan})
+         {
+            my $q = uri_escape($1);
+
+            react( $channel, $msgid, 'wait' );
+
+            $discord->start_typing( $channel, sub {
+               my @c = qw(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z 0 1 2 3 4 5 6 7 8 9 _);
+               my $tmp = '/tmp/XXXXXXXX.gif';
+               $tmp =~ s/X/$c[int(rand(@c))]/ge;
+
+               my $ua = LWP::UserAgent->new( timeout => 11 );
+               my $r = $ua->get( 'http://api.wolframalpha.com/v1/simple?appid=' . $$config{waappid} . '&background=36393F&foreground=white&fontsize=22&width=800&units=metric&timeout=8&i=' . $q, 'Accept-Encoding' => HTTP::Message::decodable, ':content_file' => $tmp);
+               unless ( $r->is_success && -s $tmp )
+               {
+                  $discord->delete_all_reactions_for_emoji( $channel, $msgid, $$reactions{wait} );
+                  react( $channel, $msgid, 'red' );
+               }
+               else
+               {
+                  my $args = {
+                     'path' => $tmp,
+                     'name' => ((split /\//, $tmp)[-1]),
+                  };
+
+                  $discord->send_image( $channel, $args, sub { unlink $tmp if (-e $tmp); $discord->delete_all_reactions_for_emoji( $channel, $msgid, $$reactions{wait} ); $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
+               }
+            });
          }
          elsif ( $msg =~ /^!dot/i )
          {
@@ -1606,7 +1637,7 @@ sub verify ($steamid)
 {
    if ( defined $$store{steamidqueue}{$steamid} )
    {
-      $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, "\N{U+23F3}" );
+      $discord->delete_all_reactions_for_emoji( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, $$reactions{wait} );
       $discord->add_guild_member_role( $$config{discord}{guild_id}, $$store{steamidqueue}{$steamid}{discordid}, $$config{discord}{ver_role} );
       $discord->send_message( $$store{steamidqueue}{$steamid}{chan}, "<\@$$store{steamidqueue}{$steamid}{discordid}> <:greentick:712004372678049822> You have successfully validated your Steam ID! VIP status granted." );
       react( $$store{steamidqueue}{$steamid}{chan}, $$store{steamidqueue}{$steamid}{msgid}, 'green' );
