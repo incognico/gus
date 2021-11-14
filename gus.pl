@@ -711,7 +711,7 @@ sub discord_on_message_create
                     },
                     {
                        'name'   => 'Country',
-                       'value'  => lc($r->[11]) eq 'us' ? ':gay_pride_flag:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':',
+                       'value'  => lc($r->[11]) eq 'il' ? ':flag_ps:' : ( lc($r->[11]) eq 'us' ? ':flag_il::satellite_orbital:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':' ),
                        'inline' => \1,
                     },
                     {
@@ -1391,7 +1391,7 @@ sub discord_on_message_create
          {
             my $q = uri_escape($1);
 
-            react( $channel, $msgid, 'wait' );
+            #react( $channel, $msgid, 'wait' );
 
             $discord->start_typing( $channel, sub {
                my @c = qw(A B C D E F G H I J K L M N O P Q R S T U V W X Y Z a b c d e f g h i j k l m n o p q r s t u v w x y z 0 1 2 3 4 5 6 7 8 9 _);
@@ -1399,10 +1399,10 @@ sub discord_on_message_create
                $tmp =~ s/X/$c[int(rand(@c))]/ge;
 
                my $ua = LWP::UserAgent->new( timeout => 11 );
-               my $r = $ua->get( 'http://api.wolframalpha.com/v1/simple?appid=' . $$config{waappid} . '&background=36393F&foreground=white&fontsize=22&width=800&units=metric&timeout=8&i=' . $q, 'Accept-Encoding' => HTTP::Message::decodable, ':content_file' => $tmp);
+               my $r = $ua->get( 'http://api.wolframalpha.com/v1/simple?appid=' . $$config{waappid} . '&background=36393F&foreground=white&fontsize=22&width=760&units=metric&timeout=8&i=' . $q, 'Accept-Encoding' => HTTP::Message::decodable, ':content_file' => $tmp);
                unless ( $r->is_success && -s $tmp )
                {
-                  $discord->delete_all_reactions_for_emoji( $channel, $msgid, $$reactions{wait} );
+                  #$discord->delete_all_reactions_for_emoji( $channel, $msgid, $$reactions{wait} );
                   react( $channel, $msgid, 'red' );
                }
                else
@@ -1412,7 +1412,8 @@ sub discord_on_message_create
                      'name' => ((split /\//, $tmp)[-1]),
                   };
 
-                  $discord->send_image( $channel, $args, sub { unlink $tmp if (-e $tmp); $discord->delete_all_reactions_for_emoji( $channel, $msgid, $$reactions{wait} ); $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
+                  #$discord->send_image( $channel, $args, sub { unlink $tmp if (-e $tmp); $discord->delete_all_reactions_for_emoji( $channel, $msgid, $$reactions{wait} ); $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
+                  $discord->send_image( $channel, $args, sub { unlink $tmp if (-e $tmp); $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
                }
             });
          }
@@ -1665,7 +1666,7 @@ sub getstatus ()
    my $infos = $q->get_all;
 
    return $$infos{$ap}{'info'} if ( defined $$infos{$ap}{'info'} );
-   return undef;
+   return;
 }
 
 sub react ($channel, $msgid, $reaction)
