@@ -587,7 +587,7 @@ exit;
 
 ###
 
-sub discord_on_message_create
+sub discord_on_message_create ()
 {
    $discord->gw->on('MESSAGE_CREATE' => sub ($gw, $hash)
    {
@@ -765,7 +765,7 @@ sub discord_on_message_create
 
                unless ( defined $infos )
                {
-                  if ( $$cache{mapchanges} && time - $$cache{mapchangetime} <= 10 )
+                  if ( $$cache{mapchanges} && time - $$cache{mapchangetime} <= 25 )
                   {
                      react( $channel, $msgid, 'map' );
                      react( $channel, $msgid, 'change' );
@@ -1484,6 +1484,22 @@ sub discord_on_message_create
                  ],
             };
 
+            my $r = get('http://localhost:8811/metrics');
+
+            if ( $r )
+            {
+               my $served = $1 if ($r =~ /^cloudflared_tunnel_response_by_code\{status_code="200"\} ([0-9]+)$/m);
+               push $$embed{'fields'}->@*, { 'name' => 'FastDL Served', 'value' => $served, 'inline' => \1 }; 
+
+               my ($total, $div) = (0, 1e+9);
+               my @m = $r =~ /^quic_client_(?:sent|receive)_bytes\{conn_index="[0-9]+"\} (.+)$/gm;
+               for (@m)
+               {
+                  $total += $_;
+               }
+               push $$embed{'fields'}->@*, { 'name' => 'FastDL Traffic', 'value' => sprintf('%.3g GB', $total/$div), 'inline' => \1 };
+            }
+
             my $message = {
                'content' => '',
                'embed' => $embed,
@@ -1497,7 +1513,7 @@ sub discord_on_message_create
    return;
 }
 
-sub discord_on_message_delete
+sub discord_on_message_delete ()
 {
    $discord->gw->on('MESSAGE_DELETE' => sub ($gw, $hash)
    {
