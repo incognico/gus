@@ -1427,10 +1427,27 @@ sub discord_on_message_create ()
          }
          elsif ( $msg =~ /^!uptime/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) && $id == $$config{discord}{owner_id} )
          {
+            my @files = sort {(stat($a))[9] <=> (stat($b))[9]} glob('/home/svends/sc5/svends.*.pid');
+
             my $embed = {
                'color' => '15844367',
                 'title' => '**:chart_with_upwards_trend: Statistics**',
                 'fields' => [
+                 {
+                    'name'   => 'Server Uptime',
+                    'value'  => duration(uptime()),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Server LoadAVG',
+                    'value'  => load(),
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'SvenDS Uptime',
+                    'value'  => duration(time-(stat($files[-1]))[9]),
+                    'inline' => \1,
+                 },
                  {
                     'name'   => 'Gus Uptime',
                     'value'  => duration(time-$started),
@@ -1488,7 +1505,8 @@ sub discord_on_message_create ()
 
             if ( $r )
             {
-               my $served = $1 if ($r =~ /^cloudflared_tunnel_response_by_code\{status_code="200"\} ([0-9]+)$/m);
+               my $served = 0;
+               $served = $1 if ($r =~ /^cloudflared_tunnel_response_by_code\{status_code="200"\} ([0-9]+)$/m);
                push $$embed{'fields'}->@*, { 'name' => 'FastDL Served', 'value' => $served, 'inline' => \1 }; 
 
                my ($total, $div) = (0, 1e+9);
@@ -1505,7 +1523,7 @@ sub discord_on_message_create ()
                'embed' => $embed,
             };
 
-            $discord->send_message( $channel, $message );
+            $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
       }
    });
@@ -1683,6 +1701,26 @@ sub getstatus ()
 
    return $$infos{$ap}{'info'} if ( defined $$infos{$ap}{'info'} );
    return;
+}
+
+sub uptime ()
+{
+   open my $proc_uptime, '<', '/proc/uptime';
+ 
+   my $line = <$proc_uptime>;
+   my ($uptime) = $line =~ /^(\d+)/;
+
+   return $uptime;
+}
+ 
+sub load ()
+{
+   open my $proc_loadavg, '<', '/proc/loadavg';
+ 
+   my $line = <$proc_loadavg>;
+   my ($load1, $load5, $load15) = $line =~ /^(\d+\.?\d*)\s+(\d+\.?\d*)\s+(\d+\.?\d*)/;
+
+   return ($load1, $load5, $load15);
 }
 
 sub react ($channel, $msgid, $reaction)
