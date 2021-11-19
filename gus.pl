@@ -506,7 +506,7 @@ my $filestream = IO::Async::FileStream->new(
    }
 );
 
-my $timer = IO::Async::Timer::Periodic->new(
+my $fasttimer = IO::Async::Timer::Periodic->new(
    interval => 15,
 
    on_tick => sub ($) {
@@ -517,19 +517,6 @@ my $timer = IO::Async::Timer::Periodic->new(
       {
          delete $$store{steamidqueue}{$_} unless (exists $$store{steamidqueue}{$_}{ts} && (($$store{steamidqueue}{$_}{ts} + 3600) > time));
          $storechanged = 1;
-      }
-
-      if (int(rand(10)) == 0)
-      {
-         for (keys $$cache{msgpair}->%*)
-         {
-            my $c = $_;
-
-            for (keys $$cache{msgpair}{$c}->%*)
-            {
-               delete $$cache{msgpair}{$c}{$_} unless (exists $$cache{msgpair}{$c}{$_}{ts} && (($$cache{msgpair}{$c}{$_}{ts} + 259200) > time));
-            }
-         }
       }
 
       return unless (defined $$store{reminders} && $discord->connected);
@@ -570,14 +557,34 @@ my $timer = IO::Async::Timer::Periodic->new(
          $$cache{day} = $day;
          delete $$cache{today};
       }
-   },
+   }
 );
-$timer->start;
+$fasttimer->start;
+
+my $slowtimer = IO::Async::Timer::Periodic->new(
+   interval => 7200,
+
+   on_tick => sub ($) {
+      for (keys $$cache{msgpair}->%*)
+      {
+         my $c = $_;
+
+         for (keys $$cache{msgpair}{$c}->%*)
+         {
+            delete $$cache{msgpair}{$c}{$_} unless (exists $$cache{msgpair}{$c}{$_}{ts} && (($$cache{msgpair}{$c}{$_}{ts} + 259200) > time));
+         }
+      }
+
+      dot();
+   }
+);
+$slowtimer->start;
 
 my $loop = IO::Async::Loop::Mojo->new;
 
 $loop->add($filestream);
-$loop->add($timer);
+$loop->add($fasttimer);
+$loop->add($slowtimer);
 
 $loop->run unless (Mojo::IOLoop->is_running);
 
@@ -765,7 +772,7 @@ sub discord_on_message_create ()
 
                unless ( defined $infos )
                {
-                  if ( $$cache{mapchanges} && time - $$cache{mapchangetime} <= 25 )
+                  if ( $$cache{mapchanges} && time - $$cache{mapchangetime} <= 30 )
                   {
                      react( $channel, $msgid, 'map' );
                      react( $channel, $msgid, 'change' );
@@ -1316,6 +1323,8 @@ sub discord_on_message_create ()
             
             my $loc;
 
+            $tz = 'Etc/UTC' if ($tz =~ /^utc$/i);
+
             unless ( DateTime::TimeZone->is_valid_name($tz) )
             {
                my $geo = Geo::Coder::Google->new(apiver => 3, language => 'en', key => $$config{'gmapikey'});
@@ -1416,10 +1425,6 @@ sub discord_on_message_create ()
                   $discord->send_image( $channel, $args, sub { unlink $tmp if (-e $tmp); $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
                }
             });
-         }
-         elsif ( $msg =~ /^!dot/i )
-         {
-            $discord->send_message( $channel, 'https://korea-dpr.org/dot/?' . time, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
          elsif ( $msg =~ /^!help/i )
          {
@@ -1727,6 +1732,18 @@ sub react ($channel, $msgid, $reaction)
 {
    $discord->create_reaction( $channel, $msgid, $$reactions{$reaction} );
    return;
+}
+
+sub dot ()
+{
+   my $lastdot = $$store{dot};
+   $$store{dot} = get('https://korea-dpr.org/dot/?x=1');
+
+   if ($$store{dot} ne $lastdot)
+   {
+      $discord->send_message( $$config{discord}{mainchan}, 'https://korea-dpr.org/dot/?' . time );
+      $storechanged = 1;
+   }
 }
 
 sub quit ($)
