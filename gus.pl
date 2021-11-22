@@ -574,8 +574,6 @@ my $slowtimer = IO::Async::Timer::Periodic->new(
             delete $$cache{msgpair}{$c}{$_} unless (exists $$cache{msgpair}{$c}{$_}{ts} && (($$cache{msgpair}{$c}{$_}{ts} + 259200) > time));
          }
       }
-
-      dot();
    }
 );
 $slowtimer->start;
@@ -1426,6 +1424,60 @@ sub discord_on_message_create ()
                }
             });
          }
+         elsif ( $msg =~ /^!bible ?([A-z]+)? ?(?:([0-9]+):([0-9]+))?/i )
+         {
+            my $book = $1;
+            my $chapter = $2;
+            my $verse = $3;
+
+            my $r;
+
+            unless ($1 && $2 && $3)
+            {
+               $r = get('https://bible-api.com/?random=verse&translation=kjv');
+            }
+            else
+            {
+               $r = get('https://bible-api.com/' . $book . '+' . $chapter . ':' . $verse . '?translation=kjv');
+            }
+
+            if (!$r || $r eq '"translation not found"' || $r eq '{"error":"not found"}')
+            {
+               react( $channel, $msgid, 'red' );
+               return;
+            }
+
+            my $json = decode_json($r);
+            $$json{verses}[0]{text} =~ s/\n/ /g;
+
+            my $embed = {
+               'color' => '15844367',
+                'fields' => [
+                 {
+                    'name'   => 'Book',
+                    'value'  => $$json{verses}[0]{book_name},
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => 'Chapter:Verse',
+                    'value'  => $$json{verses}[0]{chapter} . ':' . $$json{verses}[0]{verse},
+                    'inline' => \1,
+                 },
+                 {
+                    'name'   => ':cross:',
+                    'value'  => $$json{verses}[0]{text},
+                    'inline' => \0,
+                 }
+                 ],
+            };
+
+            my $message = {
+               'content' => '',
+               'embed' => $embed,
+            };
+
+            $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
+         }
          elsif ( $msg =~ /^!help/i )
          {
             $discord->send_message( $channel, 'https://twlz.lifeisabug.com/gus', sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
@@ -1732,18 +1784,6 @@ sub react ($channel, $msgid, $reaction)
 {
    $discord->create_reaction( $channel, $msgid, $$reactions{$reaction} );
    return;
-}
-
-sub dot ()
-{
-   my $lastdot = $$store{dot};
-   $$store{dot} = get('https://korea-dpr.org/dot/?x=1');
-
-   if ($$store{dot} ne $lastdot)
-   {
-      $discord->send_message( $$config{discord}{mainchan}, 'https://korea-dpr.org/dot/?' . time );
-      $storechanged = 1;
-   }
 }
 
 sub quit ($)
