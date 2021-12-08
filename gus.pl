@@ -40,6 +40,7 @@ use MaxMind::DB::Reader;
 use Mojo::Discord;
 use Net::SRCDS::Queries;
 use Path::This '$THISDIR';
+use POSIX 'floor';
 use Term::Encoding 'term_encoding';
 use URI::Escape;
 use Weather::METNO;
@@ -77,6 +78,7 @@ my $config = {
       #vipchan    => 748823540496597013,
       vipchan    => 0,
       ayayachan  => 459345843942588427,
+      jailchan   => 916442377105854504,
       nocmdchans => [706113584626663475, 610862900357234698, 698803767512006677],
 
       client_id  => 393059875871260672,
@@ -84,6 +86,7 @@ my $config = {
       guild_id   => 458323696910598165,
 
       ver_role   => 712296542211670088,
+      jail_role  => 916442703225561089
    }
 };
 
@@ -258,7 +261,7 @@ my $filestream = IO::Async::FileStream->new(
             }
 
             my $embed = {
-               'color' => '15844367',
+               'color' => randcol(),
                'provider' => {
                   'name' => 'twlz',
                   'url' => 'https://twlz.lifeisabug.com',
@@ -402,6 +405,7 @@ my $filestream = IO::Async::FileStream->new(
 
             return if ($msg =~ /^\.(?:vc|cspitch|lagc|lost|ping) /i);
             return if ($msg =~ /^[\/\.][a-z]$/);
+            return if ($msg =~ /^diff$/i);
 
             return if (exists $$cache{$steamid}{antispam} && $msg eq $$cache{$steamid}{antispam});
             $$cache{$steamid}{antispam} = $msg;
@@ -512,6 +516,18 @@ my $fasttimer = IO::Async::Timer::Periodic->new(
    on_tick => sub ($) {
       DumpFile($$config{store}, $store) if $storechanged;
       $storechanged = 0;
+
+      for (keys $$store{jail}->%*)
+      {
+         my $jailid = $_;
+
+         unless (exists $$store{jail}{$_} && $$store{jail}{$_} > time)
+         {
+            $discord->remove_guild_member_role( $$config{discord}{guild_id}, $jailid, $$config{discord}{jail_role}, sub { $discord->send_message($$config{discord}{mainchan}, '<@'.$jailid.'> Was released from the jail.') } );
+            delete $$store{jail}{$_};
+            $storechanged = 1;
+         }
+      }
 
       for (keys $$store{steamidqueue}->%*)
       {
@@ -697,7 +713,7 @@ sub discord_on_message_create ()
                $nickname =~ s/$discord_markdown_pattern/\\$1/g;
 
                my $embed = {
-                  'color' => '15844367',
+                  'color' => randcol(),
                   'footer' => {
                      'text' => 'STEAM_' . $r->[1],
                   },
@@ -716,7 +732,7 @@ sub discord_on_message_create ()
                     },
                     {
                        'name'   => 'Country',
-                       'value'  => lc($r->[11]) eq 'il' ? ':flag_ps:' : ( lc($r->[11]) eq 'us' ? ':flag_il::satellite_orbital:' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':' ),
+                       'value'  => lc($r->[11]) eq 'il' ? ':flag_ps:' : ( lc($r->[11]) eq 'au' ? '<:ausgulag:916311826168422420>' : ':flag_'.($r->[11] ? lc($r->[11]) : 'white').':' ),
                        'inline' => \1,
                     },
                     {
@@ -867,7 +883,7 @@ sub discord_on_message_create ()
             my $symbolurl  = 'https://distfiles.lifeisabug.com/metno/' . $symboltype;
 
             my $embed = {
-               'color' => '15844367',
+               'color' => randcol(),
                'provider' => {
                   'name' => 'met.no',
                   'url'  => 'https://www.met.no/',
@@ -1034,7 +1050,7 @@ sub discord_on_message_create ()
                substr($footer, 0, 2, '')                 if     ( $$omdb{Rated}    eq 'N/A' );
 
                my $embed = {
-                  'color' => '15844367',
+                  'color' => randcol(),
                   'provider' => {
                      'name' => 'OMDB',
                      'url'  => 'https://www.omdbapi.com',
@@ -1351,7 +1367,7 @@ sub discord_on_message_create ()
             $emoji .= '30' if ($m >= 30);
 
             my $embed = {
-               'color' => '15844367',
+               'color' => randcol(),
                 'title' => ':clock' . $emoji . ': **Time** ' . ($loc ? "in **$loc" : "for zone **$tz") . '**',
                 'footer' => {
                    'text' => 'Day: ' . $day . ' / Month: ' . $month . ' / Epoch: ' . $epoch,
@@ -1394,7 +1410,7 @@ sub discord_on_message_create ()
 
             $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
-         elsif ( $msg =~ /^!q (.+)/i && $channel != $$config{discord}{mainchan})
+         elsif ( $msg =~ /^!wolfram (.+)/i && $channel != $$config{discord}{mainchan})
          {
             my $q = uri_escape($1);
 
@@ -1451,20 +1467,10 @@ sub discord_on_message_create ()
             $$json{verses}[0]{text} =~ s/\n/ /g;
 
             my $embed = {
-               'color' => '15844367',
+               'color' => randcol(),
                 'fields' => [
                  {
-                    'name'   => 'Book',
-                    'value'  => $$json{verses}[0]{book_name},
-                    'inline' => \1,
-                 },
-                 {
-                    'name'   => 'Chapter:Verse',
-                    'value'  => $$json{verses}[0]{chapter} . ':' . $$json{verses}[0]{verse},
-                    'inline' => \1,
-                 },
-                 {
-                    'name'   => ':cross:',
+                    'name'   => $$json{verses}[0]{book_name} . ' ' . $$json{verses}[0]{chapter} . ':' . $$json{verses}[0]{verse},
                     'value'  => $$json{verses}[0]{text},
                     'inline' => \0,
                  }
@@ -1482,12 +1488,37 @@ sub discord_on_message_create ()
          {
             $discord->send_message( $channel, 'https://twlz.lifeisabug.com/gus', sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
+         elsif ( $msg =~ /^!([jb])ail <@!?(\d+)> ?([0-9]+)?/i && $id == $$config{discord}{owner_id} )
+         {
+            my $jailid = $2;
+
+            if ($1 eq 'j')
+            {
+               unless ($3)
+               {
+                  react( $channel, $msgid, 'red' );
+                  return;
+               }
+
+               my $jailmin = $3;
+
+               $$store{jail}{$jailid} = time + $jailmin*60;
+               $storechanged = 1;
+               $discord->add_guild_member_role( $$config{discord}{guild_id}, $jailid, $$config{discord}{jail_role}, sub { $discord->send_message( $$config{discord}{jailchan}, '<@'.$jailid.'> You have been jailed for '.duration($jailmin*60).'.' ) } );
+               react( $channel, $msgid, 'green' );
+            }
+            else
+            {
+               $$store{jail}{$jailid} = $storechanged = 1;
+               react( $channel, $msgid, 'green' );
+            }
+         }
          elsif ( $msg =~ /^!uptime/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) && $id == $$config{discord}{owner_id} )
          {
             my @files = sort {(stat($a))[9] <=> (stat($b))[9]} glob('/home/svends/sc5/svends.*.pid');
 
             my $embed = {
-               'color' => '15844367',
+               'color' => randcol(),
                 'title' => '**:chart_with_upwards_trend: Statistics**',
                 'fields' => [
                  {
@@ -1784,6 +1815,46 @@ sub react ($channel, $msgid, $reaction)
 {
    $discord->create_reaction( $channel, $msgid, $$reactions{$reaction} );
    return;
+}
+
+sub randcol ()
+{
+   my ($h, $s, $v) = (rand(360)/60, 0.5+rand(0.5), 0.9+rand(0.1));
+
+   my $i = floor( $h );
+   my $f = $h - $i;
+   my $p = $v * ( 1 - $s );
+   my $q = $v * ( 1 - $s * $f );
+   my $t = $v * ( 1 - $s * ( 1 - $f ) );
+
+   my ($r, $g, $b);
+
+   if ( $i == 0 )
+   {
+      ($r, $g, $b) = ($v, $t, $p);
+   }
+   elsif ( $i == 1 )
+   {
+      ($r, $g, $b) = ($q, $v, $p);
+   }
+   elsif ( $i == 2 )
+   {
+      ($r, $g, $b) = ($p, $v, $t);
+   }
+   elsif ( $i == 3 )
+   {
+      ($r, $g, $b) = ($p, $q, $v);
+   }
+   elsif ( $i == 4 )
+   {
+      ($r, $g, $b) = ($t, $p, $v);
+   }
+   else
+   {
+      ($r, $g, $b) = ($v, $p, $q);
+   }
+
+   return hex(sprintf('0x%02x%02x%02x', int(floor($r*255)), int(floor($g*255)), int(floor($b*255))));
 }
 
 sub quit ($)
