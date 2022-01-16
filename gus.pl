@@ -179,6 +179,7 @@ discord_on_guild_create();
 discord_on_resumed();
 discord_on_message_create();
 discord_on_message_delete();
+discord_on_guild_member_remove();
 
 $discord->init();
 
@@ -405,7 +406,7 @@ my $filestream = IO::Async::FileStream->new(
 
             return if ($msg =~ /^\.(?:vc|cspitch|lagc|lost|ping) /i);
             return if ($msg =~ /^[\/\.][a-z]$/);
-            return if ($msg =~ /^diff$/i);
+            return if ($msg =~ /^diff$/);
 
             return if (exists $$cache{$steamid}{antispam} && $msg eq $$cache{$steamid}{antispam});
             $$cache{$steamid}{antispam} = $msg;
@@ -1410,7 +1411,7 @@ sub discord_on_message_create ()
 
             $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
-         elsif ( $msg =~ /^!wolfram (.+)/i && $channel != $$config{discord}{mainchan})
+         elsif ( $msg =~ /^!alpha (.+)/i && $channel != $$config{discord}{mainchan})
          {
             my $q = uri_escape($1);
 
@@ -1440,7 +1441,7 @@ sub discord_on_message_create ()
                }
             });
          }
-         elsif ( $msg =~ /^!bible ?([A-z]+)? ?(?:([0-9]+):([0-9]+))?/i )
+         elsif ( $msg =~ /^!bible ?((?:[0-9] )?[A-z]+)? ?(?:([0-9]+):([0-9]+))?/i )
          {
             my $book = $1;
             my $chapter = $2;
@@ -1632,6 +1633,18 @@ sub discord_on_message_delete ()
          delete $$cache{msgpair}{$channel}{$msgid};
          $$cache{trolldeletes}++;
       }
+   });
+
+   return;
+}
+
+sub discord_on_guild_member_remove ()
+{
+   $discord->gw->on('GUILD_MEMBER_REMOVE' => sub ($gw, $hash)
+   {
+      my $msg = '<@'.$hash->{'user'}{'id'}.'> '.$hash->{'user'}{'username'}.'#'.$hash->{'user'}{'discriminator'}.' has left the server.';
+      $discord->send_message( $$config{discord}{mainchan}, $msg );
+      $discord->send_message( $$config{discord}{ayayachan}, $msg );
    });
 
    return;
