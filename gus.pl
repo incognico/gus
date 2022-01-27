@@ -1233,7 +1233,7 @@ sub discord_on_message_create ()
                }
             }
          }
-         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s-]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d+)|(?:(?<year>\d{4})-?(?<month>\d\d)-?(?<day>\d\d)\s+)?(?<hm>\d\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
+         elsif ( $msg =~ /^!?rem(?:ind)?\s+(?:(?<target>[^\s-]+)\s+)?(?:(?:in|at)\s+)?(?:(?<mins>\d+)|(?:(?<year>\d{4})-?(?<month>\d\d)-?(?<day>\d\d)\s+)?(?<hm>\d?\d:\d\d))(?:\s+(?:(?:to|that)\s+)?(?<text>.+)?)?$/i )
          # TODO: make y m d all optional
          # TODO: random time 3h-3d when "remind me to ..."?
          {
@@ -1642,7 +1642,7 @@ sub discord_on_guild_member_remove ()
 {
    $discord->gw->on('GUILD_MEMBER_REMOVE' => sub ($gw, $hash)
    {
-      my $msg = '<@'.$hash->{'user'}{'id'}.'> '.$hash->{'user'}{'username'}.'#'.$hash->{'user'}{'discriminator'}.' has left the server.';
+      my $msg = '<@'.$hash->{'user'}{'id'}.'> ('.$hash->{'user'}{'username'}.'#'.$hash->{'user'}{'discriminator'}.') has left the server.';
       $discord->send_message( $$config{discord}{mainchan}, $msg );
       $discord->send_message( $$config{discord}{ayayachan}, $msg );
    });
@@ -1786,7 +1786,7 @@ sub verify ($steamid)
 
 sub getstatus ()
 {
-   my $if       = IO::Interface::Simple->new('lo');
+   my $if       = IO::Interface::Simple->new('ens3');
    my $addr     = $if->address;
    my $port     = $$config{'serverport'};
    my $ap       = "$addr:$port";
