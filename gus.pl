@@ -656,7 +656,7 @@ sub discord_on_message_create ()
          $msg =~ s/\@+everyone/everyone/g;
          $msg =~ s/\@+here/here/g;
 
-         if ( $channel eq $$config{discord}{linkchan} )
+         if ( $channel == $$config{discord}{linkchan} )
          {
             $msg =~ s/`//g;
             $msg =~ s/%/%%/g;
@@ -696,7 +696,7 @@ sub discord_on_message_create ()
             my ($stmt, @bind, $r);
 
             my $nsa;
-            $nsa = 1 if ( $channel eq $$config{discord}{ayayachan} || $channel eq $$config{discord}{trashchan} );
+            $nsa = 1 if ( $channel == $$config{discord}{ayayachan} || $channel == $$config{discord}{trashchan} );
 
             if ( $param =~ /^STEAM_(0:[01]:[0-9]+)/ )
             {
@@ -970,7 +970,7 @@ sub discord_on_message_create ()
 
             $discord->send_message( $channel, $message, sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
          }
-         elsif ( $msg =~ /^!img ?(.+)?/i && $channel eq $$config{discord}{vipchan})
+         elsif ( $msg =~ /^!img ?(.+)?/i && $channel == $$config{discord}{vipchan})
          {
             my $type = defined $1 ? lc($1) : 'random';
             $type =~ s/ //g;
@@ -1004,7 +1004,7 @@ sub discord_on_message_create ()
                react( $channel, $msgid, 'pepe' );
             }
          }
-         elsif ( $msg =~ /^!ud (.+)/i && $channel eq $$config{discord}{mediachan} )
+         elsif ( $msg =~ /^!ud (.+)/i && $channel == $$config{discord}{mediachan} )
          {
             my $input = $1;
             my $query = uri_escape( $input );
@@ -1149,7 +1149,7 @@ sub discord_on_message_create ()
                return;
             }
 
-            my @maps = map { fileparse($_, qr/\.[^.]*/) } glob('/home/svends/sc5/svencoop*/maps/*.bsp');
+            my @maps = map { (fileparse($_, qr/\.[^.]*/))[0] } glob('/home/svends/sc5/svencoop*/maps/*.bsp');
 
             if ( $map ~~ @maps )
             {
