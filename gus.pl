@@ -5,7 +5,7 @@
 # Requires https://github.com/vsTerminus/Mojo-Discord
 # Based on https://github.com/vsTerminus/Goose
 #
-# Copyright 2017-2021, Nico R. Wohlgemuth <nico@lifeisabug.com>
+# Copyright 2017-2022, Nico R. Wohlgemuth <nico@lifeisabug.com>
 
 use v5.28.0;
 
@@ -28,6 +28,7 @@ use DBI;
 use DateTime::TimeZone;
 use DateTime;
 use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
+use File::Basename;
 use Geo::Coder::Google;
 use IO::Async::FileStream;
 use IO::Async::Loop::Mojo;
@@ -78,6 +79,7 @@ my $config = {
       #vipchan    => 748823540496597013,
       vipchan    => 0,
       ayayachan  => 459345843942588427,
+      trashchan  => 512991515744665600,
       jailchan   => 916442377105854504,
       nocmdchans => [706113584626663475, 610862900357234698, 698803767512006677],
 
@@ -154,6 +156,7 @@ my $reactions = {
    'red'    => ':redtick:712004372707541003',
    'what'   => ':what:660870075607416833',
    'pepe'   => ':PepeHands:557286043548778499',
+   'ia'     => ':Inshallah:953722958021550190',
    'map'    => "\N{U+1F5FA}",
    'change' => "\N{U+1F504}",
    'wait'   => "\N{U+23F3}",
@@ -291,11 +294,25 @@ my $filestream = IO::Async::FileStream->new(
             
             $discord->send_message( $$config{discord}{linkchan}, $message );
 
+            my $pingstring;
+
+            if (defined $$store{pings}{$data[2]})
+            {
+               $pingstring .= "<\@$_> " for (keys $$store{pings}{$data[2]}->%*);
+               $pingstring .= '<:ping:640195746074853409>';
+               delete $$store{pings}{$data[2]};
+               $storechanged = 1;
+            }
+
             if ( exists $$maps{$data[2]} && $data[2] ne $lastmap )
             {
                my $s = '';
                $s = 's' if ( $data[3] > 1 );
-               $discord->send_message( $$config{discord}{mainchan}, "**$$maps{$data[2]}** has started with **$data[3]** player$s!" );
+               $discord->send_message( $$config{discord}{mainchan}, "**$$maps{$data[2]}** has started with **$data[3]** player$s! $pingstring" );
+            }
+            elsif ( $pingstring )
+            {
+               $discord->send_message( $$config{discord}{mainchan}, "**$data[2]** is now starting! $pingstring" );
             }
 
             $lastmap = $data[2];
@@ -398,7 +415,11 @@ my $filestream = IO::Async::FileStream->new(
             my $td = time - $ts;
             say localtime(time) . ' !! warning: previous message desynced by: ' . $td . 's!' if ($td > 3);
 
-            if ( !$$cache{$steamid}{cc} && $ip )
+            if ( $steamid eq 'STEAM_0:0:19542618') # Mic-Chan
+            {
+               $$cache{$steamid}{cc} = '';
+            }
+            elsif ( !$$cache{$steamid}{cc} && $ip )
             {
                my $r = $gi->record_for_address($ip);
                $$cache{$steamid}{cc} = lc($r->{country}{iso_code}) if $r->{country}{iso_code};
@@ -494,6 +515,11 @@ my $filestream = IO::Async::FileStream->new(
 
             $msg = '_' . substr($msg, 4) . '_' if ($msg =~ /^\/me /);
 
+            if ( $steamid eq 'STEAM_0:0:19542618') # Mic-Chan
+            {
+               $emoji = ':mega:';
+            }
+
             $final = $emoji . '`' . $nick . '`  ' . $msg;
 
             my $message = {
@@ -514,7 +540,8 @@ my $filestream = IO::Async::FileStream->new(
 my $fasttimer = IO::Async::Timer::Periodic->new(
    interval => 15,
 
-   on_tick => sub ($) {
+   on_tick => sub ($)
+   {
       DumpFile($$config{store}, $store) if $storechanged;
       $storechanged = 0;
 
@@ -581,7 +608,8 @@ $fasttimer->start;
 my $slowtimer = IO::Async::Timer::Periodic->new(
    interval => 7200,
 
-   on_tick => sub ($) {
+   on_tick => sub ($)
+   {
       for (keys $$cache{msgpair}->%*)
       {
          my $c = $_;
@@ -668,7 +696,7 @@ sub discord_on_message_create ()
             my ($stmt, @bind, $r);
 
             my $nsa;
-            $nsa = 1 if ( $channel eq $$config{discord}{ayayachan} );
+            $nsa = 1 if ( $channel eq $$config{discord}{ayayachan} || $channel eq $$config{discord}{trashchan} );
 
             if ( $param =~ /^STEAM_(0:[01]:[0-9]+)/ )
             {
@@ -1109,6 +1137,30 @@ sub discord_on_message_create ()
             $x[int(rand(@x))] =~ s/\[\s\]/[x]/;
 
             $discord->send_message( $channel, join('', @x), sub { $$cache{msgpair}{$channel}{$msgid}{id} = shift->{id}; $$cache{msgpair}{$channel}{$msgid}{ts} = time } );
+         }
+         elsif ( $msg =~ /^!ping ([^.]+)(?:\.bsp)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
+         {
+            my $map = lc($1);
+
+            return unless (defined $map);
+            if (exists $$store{pings}{$map}{$id} || $map eq '_server_start')
+            {
+               react( $channel, $msgid, 'ia' );
+               return;
+            }
+
+            my @maps = map { fileparse($_, qr/\.[^.]*/) } glob('/home/svends/sc5/svencoop*/maps/*.bsp');
+
+            if ( $map ~~ @maps )
+            {
+               $$store{pings}{$map}{$id}++;
+               $storechanged = 1;
+               react( $channel, $msgid, 'green' );
+            }
+            else
+            {
+               react( $channel, $msgid, 'red' );
+            }
          }
          elsif ( $msg =~ /^!(set|get) (tz|steamid) ?(.*)?/i && !($channel ~~ $$config{discord}{nocmdchans}->@*) )
          {
@@ -1644,7 +1696,7 @@ sub discord_on_guild_member_remove ()
    {
       my $msg = '<@'.$hash->{'user'}{'id'}.'> ('.$hash->{'user'}{'username'}.'#'.$hash->{'user'}{'discriminator'}.') has left the server.';
       $discord->send_message( $$config{discord}{mainchan}, $msg );
-      $discord->send_message( $$config{discord}{ayayachan}, $msg );
+      $discord->send_message( $$config{discord}{trashchan}, $msg );
    });
 
    return;
@@ -1695,7 +1747,11 @@ sub discord_on_guild_create ()
 
 sub discord_on_resumed ()
 {
-   $discord->gw->on('RESUMED' => sub ($gw, $hash) { $resumed = time; $resumedc++; });
+   $discord->gw->on('RESUMED' => sub ($gw, $hash)
+   {
+      $resumed = time;
+      $resumedc++;
+   });
 
    return;
 }
@@ -1872,9 +1928,19 @@ sub randcol ()
 
 sub quit ($)
 {
-   DumpFile($$config{store}, $store);
-   say "\n" . 'Saved $store.';
+   if ($storechanged)
+   {
+      say "\n" . 'Saving $store because it had changes.';
+      DumpFile($$config{store}, $store);
+      say 'Done.';
+   }
+   else
+   {
+      say "\n" . 'Not saving $store, no changes were made.';
+   }
+
    $discord->disconnect('Quit', 1000);
    say 'Disconnected.';
+
    exit;
 }
