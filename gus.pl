@@ -1143,7 +1143,7 @@ sub discord_on_message_create ()
             my $map = lc($1);
 
             return unless (defined $map);
-            if (exists $$store{pings}{$map}{$id} || $map eq '_server_start')
+            if ( (exists $$store{pings}{$map} && exists $$store{pings}{$map}{$id}) || $map eq '_server_start')
             {
                react( $channel, $msgid, 'ia' );
                return;
