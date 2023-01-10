@@ -294,7 +294,7 @@ my $filestream = IO::Async::FileStream->new(
             
             $discord->send_message( $$config{discord}{linkchan}, $message );
 
-            my $pingstring;
+            my $pingstring = '';
 
             if (defined $$store{pings}{$data[2]})
             {
