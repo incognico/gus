@@ -20,6 +20,10 @@ use Data::Dumper;
 use IO::Async::Loop::Mojo;
 use Mojo::Discord;
 use OpenAI::API::Request::Chat;
+use OpenAI::API::Request::Image::Generation;
+use LWP::Simple;
+use File::Temp ':POSIX';
+use File::Basename;
 
 my ($guild, $users, $started, $ready, $readyc, $resumed, $resumedc)
 =  (undef,  undef,  time,     0,      0,       0,        0        );
@@ -88,26 +92,52 @@ sub discord_on_message_create ()
          $msg =~ s/\@+everyone/everyone/g;
          $msg =~ s/\@+here/here/g;
 
-         if ($channel == $$config{discord}{gptchan} && ($msg =~ /^<@1167502883839819777> +?(.+)/ || $msg =~ /^<@&1167503499622363169> +?(.+)/))
+         if ($channel == $$config{discord}{gptchan})
          {
-            my $in = $1;
+            if ($msg =~ /^<@1167502883839819777> +?genimg (.+)/ || $msg =~ /^<@&1167503499622363169> +?genimg (.+)/) {
+               my $request = OpenAI::API::Request::Image::Generation->new(
+                  config => $gptconfig,
+                  prompt => $1,
+                  size => '512x512',
+               );
 
-            say "<$$author{username}> $in\n";
+               my $res;
 
-            my $res;
-            $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0);
-            next if $@;
+               eval { $res = $request->send(); };
 
-            if ($res) {
-               say ">> $res\n";
-               #my $send = '<@' . $$author{id} . '> ' . $res;
-               my $send = $res;
-               my @out = split(/\G(.{1,1500})(?=\n|\z)/s, $send);
-               if (scalar(@out) > 1) {
-                  $discord->send_message_content_blocking( $$config{discord}{gptchan}, $_ ) for @out;
+               if ($@) {
+                  $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
+                  return;
                }
-              else {
-                  $discord->send_message( $$config{discord}{gptchan}, $send );
+
+               my $url = $res->{data}->[0]{url};
+               my $file = tmpnam() . '.png';
+               my $dl = getstore($url, $file);
+
+               $msg =~ s/^<@&?[0-9]+> +?genimg //i;
+
+               $discord->send_image( $$config{discord}{gptchan}, { path => $file, name => basename($file), content => $msg }, sub { unlink $file }  );
+            }
+            elsif ($msg =~ /^<@1167502883839819777> +?(.+)/ || $msg =~ /^<@&1167503499622363169> +?(.+)/) {
+               my $in = $1;
+
+               say "<$$author{username}> $in\n";
+
+               my $res;
+               $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0);
+               return if $@;
+
+               if ($res) {
+                  say ">> $res\n";
+                  #my $send = '<@' . $$author{id} . '> ' . $res;
+                  my $send = $res;
+                  my @out = split(/\G(.{1,1500})(?=\n|\z)/s, $send);
+                  if (scalar(@out) > 1) {
+                     $discord->send_message_content_blocking( $$config{discord}{gptchan}, $_ ) for @out;
+                  }
+                 else {
+                     $discord->send_message( $$config{discord}{gptchan}, $send );
+                  }
                }
             }
          }
