@@ -20,6 +20,7 @@ use Data::Dumper;
 use IO::Async::Loop::Mojo;
 use Mojo::Discord;
 use OpenAI::API::Request::Chat;
+use OpenAI::API::Request::Completion;
 use OpenAI::API::Request::Image::Generation;
 use LWP::Simple;
 use File::Temp ':POSIX';
@@ -95,8 +96,8 @@ sub discord_on_message_create ()
 
          if ($channel == $$config{discord}{gptchan})
          {
-            if ($msg =~ /^<@1167502883839819777> +?genimg (.+)/ || $msg =~ /^<@&1167503499622363169> +?genimg (.+)/) {
-               say "<$$author{username}> genimg $1\n";
+            if (0 && $msg =~ /^<@1167502883839819777> +?genimg (.+)/ || $msg =~ /^<@&1167503499622363169> +?genimg (.+)/) {
+               say "IMAG <$$author{username}> genimg $1\n";
 
                my $request = OpenAI::API::Request::Image::Generation->new(
                   config => $gptconfig,
@@ -119,22 +120,49 @@ sub discord_on_message_create ()
 
                $msg =~ s/^<@&?[0-9]+> +?genimg //i;
 
-               say ">> [IMG: $msg]\n";
+               say "IMAG >> [$msg]\n";
 
                my $txt = encode_utf8_lax($msg.':');
 
                $discord->send_image( $$config{discord}{gptchan}, { path => $file, name => basename($file), content => $txt }, sub { unlink $file }  );
             }
-            elsif ($msg =~ /^<@1167502883839819777> +?(.+)/ || $msg =~ /^<@&1167503499622363169> +?(.+)/) {
+            elsif ($msg =~ /^<@1167502883839819777> +?COMP(?:LETE)? (.+)/i || $msg =~ /^<@&1167503499622363169> +?COMP(?:LETE)? (.+)/i) {
                my $in = $1;
 
-               say "<$$author{username}> $in\n";
+               chomp($in);
+
+               say "COMP <$$author{username}> $in\n";
+
+               my $res;
+               $res = gptreq2($in);
+
+               if ($res) {
+                  $res =~ s/\n\n/\n/g;
+                  $res =~ s/^ +//g;
+                  say "COMP >> $res\n";
+                  my $send = '<@' . $$author{id} . '>: ' . $res;
+                  my @out = split(/\G(.{1,1500})(?=\n|\z)/s, $send);
+                  if (scalar(@out) > 1) {
+                     $discord->send_message_content_blocking( $$config{discord}{gptchan}, $_ ) for @out;
+                  }
+                 else {
+                     $discord->send_message( $$config{discord}{gptchan}, $send );
+                  }
+               }
+            }
+            elsif ($msg =~ /^<@1167502883839819777> +?(.+)/ || $msg =~ /^<@&1167503499622363169> +?(.+)/) {
+               say $msg;
+               my $in = $1;
+
+               chomp($in);
+
+               say "CHAT <$$author{username}> $in\n";
 
                my $res;
                $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0);
 
                if ($res) {
-                  say ">> $res\n";
+                  say "CHAT >> $res\n";
                   my $send = $res;
                   $send =~ s/^@// if ($send =~ /^@<@/);
                   my @out = split(/\G(.{1,1500})(?=\n|\z)/s, $send);
@@ -160,7 +188,7 @@ sub gptreq($m, $sys) {
       $chat = OpenAI::API::Request::Chat->new(
          config => $gptconfig,
          model  => 'gpt-3.5-turbo',
-         max_tokens => 420,
+         max_tokens => 512,
          messages => [
             { role => $sys ? 'system' : 'user', content => $m },
          ],
@@ -185,7 +213,26 @@ sub gptreq($m, $sys) {
 }
 
 sub sysmsg() {
-   gptreq('You are a bot named Paul in a Discord chat channel. Extensively use Markdown syntax for text formatting. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly. You are enlightened, rhetorically well versed, light-hearted, joking and a little philosphical. Replace common adjectives with their more eloquent alternatives.', 1);
+   gptreq("You are a bot named Paul in a Discord chat channel. Excessively use Markdown for text formatting. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly. You are enlightened, rhetorically well versed, playful, joking and a little philosphical. Replace common adjectives with their more eloquent alternatives, but don't overdo it.", 1);
+}
+
+sub gptreq2($m) {
+   my $comp = OpenAI::API::Request::Completion->new(
+      config => $gptconfig,
+      model  => 'gpt-3.5-turbo-instruct',
+      max_tokens => 512,
+      prompt => $m,
+   );
+
+   my $res;
+   eval { $res = $comp->send(); };
+
+   if ($@) {
+      say "$@";
+      return (split /\n/, $@)[0];
+   }
+
+   return $res->{choices}[0]{text};
 }
 
 sub discord_on_ready ()
