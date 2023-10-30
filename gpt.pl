@@ -24,6 +24,7 @@ use OpenAI::API::Request::Image::Generation;
 use LWP::Simple;
 use File::Temp ':POSIX';
 use File::Basename;
+use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
 
 my ($guild, $users, $started, $ready, $readyc, $resumed, $resumedc)
 =  (undef,  undef,  time,     0,      0,       0,        0        );
@@ -95,6 +96,8 @@ sub discord_on_message_create ()
          if ($channel == $$config{discord}{gptchan})
          {
             if ($msg =~ /^<@1167502883839819777> +?genimg (.+)/ || $msg =~ /^<@&1167503499622363169> +?genimg (.+)/) {
+               say "<$$author{username}> genimg $1\n";
+
                my $request = OpenAI::API::Request::Image::Generation->new(
                   config => $gptconfig,
                   prompt => $1,
@@ -116,7 +119,11 @@ sub discord_on_message_create ()
 
                $msg =~ s/^<@&?[0-9]+> +?genimg //i;
 
-               $discord->send_image( $$config{discord}{gptchan}, { path => $file, name => basename($file), content => $msg }, sub { unlink $file }  );
+               say ">> [IMG: $msg]\n";
+
+               my $txt = encode_utf8_lax($msg.':');
+
+               $discord->send_image( $$config{discord}{gptchan}, { path => $file, name => basename($file), content => $txt }, sub { unlink $file }  );
             }
             elsif ($msg =~ /^<@1167502883839819777> +?(.+)/ || $msg =~ /^<@&1167503499622363169> +?(.+)/) {
                my $in = $1;
@@ -125,12 +132,11 @@ sub discord_on_message_create ()
 
                my $res;
                $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0);
-               return if $@;
 
                if ($res) {
                   say ">> $res\n";
-                  #my $send = '<@' . $$author{id} . '> ' . $res;
                   my $send = $res;
+                  $send =~ s/^@// if ($send =~ /^@<@/);
                   my @out = split(/\G(.{1,1500})(?=\n|\z)/s, $send);
                   if (scalar(@out) > 1) {
                      $discord->send_message_content_blocking( $$config{discord}{gptchan}, $_ ) for @out;
@@ -179,7 +185,7 @@ sub gptreq($m, $sys) {
 }
 
 sub sysmsg() {
-   gptreq('You are a bot named Paul in a Discord chat channel. Extensively make use of Markdown syntax. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the names and reference the user accordingly.', 1);
+   gptreq('You are a bot named Paul in a Discord chat channel. Extensively use Markdown syntax for text formatting. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly. You are enlightened, rhetorically well versed, light-hearted, joking and a little philosphical. Replace common adjectives with their more eloquent alternatives.', 1);
 }
 
 sub discord_on_ready ()
