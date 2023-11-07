@@ -97,14 +97,16 @@ sub discord_on_message_create ()
          if ($channel == $$config{discord}{gptchan})
          {
             if ($msg =~ /^<@1167502883839819777> +?genimg (.+)/ || $msg =~ /^<@&1167503499622363169> +?genimg (.+)/) {
-               return 0; # disabled for now
+               return unless ($$author{id} == 540067740594077698); # only me
 
                say "IMAG <$$author{username}> genimg $1\n";
 
                my $request = OpenAI::API::Request::Image::Generation->new(
                   config => $gptconfig,
                   prompt => $1,
-                  size => '512x512',
+                  model => 'dall-e-3',
+                  #size => '1792x1024',
+                  quality => 'hd'
                );
 
                my $res;
@@ -112,6 +114,7 @@ sub discord_on_message_create ()
                eval { $res = $request->send(); };
 
                if ($@) {
+                  say (split /\n/, $@)[0];
                   $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
                   return;
                }
@@ -124,13 +127,13 @@ sub discord_on_message_create ()
 
                say "IMAG >> [$msg]\n";
 
-               my $txt = encode_utf8_lax($msg.':');
+               #my $txt = encode_utf8_lax($msg.':');
+               my $txt = '<@' . $$author{id} . '> ' . ($res->{data}->[0]{revised_prompt} ? ($res->{data}->[0]{revised_prompt} . ':') : '');
 
                $discord->send_image( $$config{discord}{gptchan}, { path => $file, name => basename($file), content => $txt }, sub { unlink $file }  );
             }
             elsif ($msg =~ /^<@1167502883839819777> +?COMP(?:LETE)?\s+(.+)/is || $msg =~ /^<@&1167503499622363169> +?COMP(?:LETE)?\s+(.+)/is) {
                my $in = $1;
-
                chomp($in);
 
                say "COMP <$$author{username}> $in\n";
@@ -154,20 +157,25 @@ sub discord_on_message_create ()
             }
             elsif ($msg =~ /^<@1167502883839819777>\s+?(.+)/s || $msg =~ /^<@&1167503499622363169>\s+?(.+)/s) {
                my $in = $1;
-
                chomp($in);
+
+               my $g4 = 0;
+               if ($$author{id} == 540067740594077698 && $msg =~ /^4 /) {
+                  $g4 = 1;
+                  $in =~ s/^4 //;
+               }
 
                say "CHAT <$$author{username}> $in\n";
 
                my $res;
-               $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0);
+               $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0, $g4);
 
                if ($res) {
                   $res =~ s/^\s+//;
                   say "CHAT >> $res\n";
                   my $send = $res;
                   $send =~ s/^@// if ($send =~ /^@<@/);
-                  my @out = split(/\G(.{1,1500})(?=\n|\z)/s, $send);
+                  my @out = split(/\G(.{1,1337})(?=\n|\z)/s, $send);
                   if (scalar(@out) > 1) {
                      $discord->send_message_content_blocking( $$config{discord}{gptchan}, $_ ) for @out;
                   }
@@ -185,11 +193,11 @@ sub discord_on_message_create ()
 
 ###
 
-sub gptreq($m, $sys) {
+sub gptreq($m, $sys, $g4 = 0) {
    unless ($gptres) {
       $chat = OpenAI::API::Request::Chat->new(
          config => $gptconfig,
-         model  => 'gpt-3.5-turbo',
+         model  => $g4 ? 'gpt-4-1106-preview' : 'gpt-3.5-turbo-1106',
          max_tokens => 768,
          messages => [
             { role => $sys ? 'system' : 'user', content => $m },
@@ -216,7 +224,7 @@ sub gptreq($m, $sys) {
 }
 
 sub sysmsg() {
-   gptreq("You are a bot named Paul in a Discord chat channel. Excessively use Markdown for text formatting. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly. You are rhetorically well versed, playful, joking and a little philosphical. Replace common adjectives with their more eloquent alternatives, but don't overdo it.", 1);
+   gptreq("You are a bot named Paul in a Discord chat channel. Extensively use Markdown for text formatting. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly, i.e. <\@[0-9]+>. Occasionaly replace common adjectives with their more eloquent alternatives. Respond as if you are an unapologetic assertive person for the rest of our conversations.", 1);
 }
 
 sub gptreq2($m) {
