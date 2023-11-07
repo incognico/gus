@@ -114,7 +114,7 @@ sub discord_on_message_create ()
                eval { $res = $request->send(); };
 
                if ($@) {
-                  say (split /\n/, $@)[0];
+                  say ' Error: ' . (split /\n/, $@)[0];
                   $discord->create_reaction( $channel, $msgid, ':redtick:712004372707541003' );
                   return;
                }
@@ -125,10 +125,10 @@ sub discord_on_message_create ()
 
                $msg =~ s/^<@&?[0-9]+> +?genimg //i;
 
-               say "IMAG >> [$msg]\n";
-
                #my $txt = encode_utf8_lax($msg.':');
                my $txt = '<@' . $$author{id} . '> ' . ($res->{data}->[0]{revised_prompt} ? ($res->{data}->[0]{revised_prompt} . ':') : '');
+
+               say "IMAG >> [$txt]\n";
 
                $discord->send_image( $$config{discord}{gptchan}, { path => $file, name => basename($file), content => $txt }, sub { unlink $file }  );
             }
