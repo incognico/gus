@@ -23,24 +23,30 @@ use OpenAI::API::Request::Chat;
 use OpenAI::API::Request::Completion;
 use OpenAI::API::Request::Image::Generation;
 use LWP::Simple;
+use LWP::UserAgent;
+use HTTP::Request::Common;
 use File::Temp ':POSIX';
 use File::Basename;
+use JSON::MaybeXS qw(from_json to_json);
 use Encode::Simple qw(encode_utf8_lax decode_utf8_lax);
 
 my ($guild, $users, $started, $ready, $readyc, $resumed, $resumedc)
 =  (undef,  undef,  time,     0,      0,       0,        0        );
-my ($gptres, $chat);
+my ($gptres, $chat, $gptres4, $chat4);
 
 my $config = {
    discord => {
       gptchan  => 1167503883338268732,
+      gptchan4 => 1173902325979566150,
       owner_id => 540067740594077698,
       guild_id => 458323696910598165,
    }
 };
 
+my $apikey = 'sk-XXX';
+
 my $gptconfig = OpenAI::API::Config->new(
-   api_key => 'sk-XXX',
+   api_key  => $apikey,
    api_base => 'https://api.openai.com/v1',
    timeout  => 60,
    retry    => 3,
@@ -94,10 +100,10 @@ sub discord_on_message_create ()
          $msg =~ s/\@+everyone/everyone/g;
          $msg =~ s/\@+here/here/g;
 
-         if ($channel == $$config{discord}{gptchan})
+         if ($channel == $$config{discord}{gptchan} || $channel == $$config{discord}{gptchan4})
          {
-            if ($msg =~ /^<@1167502883839819777> +?genimg (.+)/ || $msg =~ /^<@&1167503499622363169> +?genimg (.+)/) {
-               return unless ($$author{id} == 540067740594077698); # only me
+            if ($msg =~ /^<\@1167502883839819777> +?genimg (.+)/ || $msg =~ /^<\@&1167503499622363169> +?genimg (.+)/) {
+               return unless ($$author{id} == 540067740594077698 || $$author{id} == 495246182512066580 || $$author{id} == 423509189340561408);
 
                say "IMAG <$$author{username}> genimg $1\n";
 
@@ -125,14 +131,15 @@ sub discord_on_message_create ()
 
                $msg =~ s/^<@&?[0-9]+> +?genimg //i;
 
-               #my $txt = encode_utf8_lax($msg.':');
-               my $txt = '<@' . $$author{id} . '> ' . ($res->{data}->[0]{revised_prompt} ? ($res->{data}->[0]{revised_prompt} . ':') : '');
+               my $txt = encode_utf8_lax('' . ($res->{data}->[0]{revised_prompt} ? ($res->{data}->[0]{revised_prompt} . ':') : ''));
 
                say "IMAG >> [$txt]\n";
 
-               $discord->send_image( $$config{discord}{gptchan}, { path => $file, name => basename($file), content => $txt }, sub { unlink $file }  );
+               $txt = '<@' . $$author{id} . '> ' . $txt;
+
+               $discord->send_image( $channel, { path => $file, name => basename($file), content => $txt }, sub { unlink $file }  );
             }
-            elsif ($msg =~ /^<@1167502883839819777> +?COMP(?:LETE)?\s+(.+)/is || $msg =~ /^<@&1167503499622363169> +?COMP(?:LETE)?\s+(.+)/is) {
+            elsif ($msg =~ /^<\@1167502883839819777> +?COMP(?:LETE)?\s+(.+)/is || $msg =~ /^<\@&1167503499622363169> +?COMP(?:LETE)?\s+(.+)/is) {
                my $in = $1;
                chomp($in);
 
@@ -146,41 +153,68 @@ sub discord_on_message_create ()
                   $res =~ s/^\s+//;
                   say "COMP >> $res\n";
                   my $send = '<@' . $$author{id} . '>: ' . $res;
-                  my @out = split(/\G(.{1,1500})(?=\n|\z)/s, $send);
+                  my @out = split(/.{0,1500}\K(?:\s+|$)/s, $send);
                   if (scalar(@out) > 1) {
-                     $discord->send_message_content_blocking( $$config{discord}{gptchan}, $_ ) for @out;
+                     $discord->send_message_content_blocking( $channel, $_ ) for @out;
                   }
                  else {
-                     $discord->send_message( $$config{discord}{gptchan}, $send );
+                     $discord->send_message( $channel, $send );
                   }
                }
             }
-            elsif ($msg =~ /^<@1167502883839819777>\s+?(.+)/s || $msg =~ /^<@&1167503499622363169>\s+?(.+)/s) {
+            elsif ($msg =~ /^<\@1167502883839819777>\s+?VIS\s+?(.+) (https?:\/\/.+)$/i || $msg =~ /^<\@&1167503499622363169>\s+?VIS\s+?(.+) (https?:\/\/.+)$/i) {
+               my $in = $1;
+               my $url = $2;
+               chomp($in);
+
+               say "VIS <$$author{username}> [$url] $in\n";
+
+               my $res;
+               $res = vision($in, $url);
+
+               if ($res) {
+                  $res =~ s/\n\n/\n/g;
+                  $res =~ s/^\s+//;
+                  say "VIS >> $res\n";
+                  my $send = '<@' . $$author{id} . '>: ' . $res;
+                  my @out = split(/.{0,1500}\K(?:\s+|$)/s, $send);
+                  if (scalar(@out) > 1) {
+                     $discord->send_message_content_blocking( $channel, $_ ) for @out;
+                  }
+                 else {
+                     $discord->send_message( $channel, $send );
+                  }
+               }
+            }
+            elsif ($msg =~ /^<\@1167502883839819777>\s+?(.+)/s || $msg =~ /^<\@&1167503499622363169>\s+?(.+)/s) {
                my $in = $1;
                chomp($in);
 
                my $g4 = 0;
-               if ($$author{id} == 540067740594077698 && $msg =~ /^4 /) {
+               if (($$author{id} == 540067740594077698 || $$author{id} == 495246182512066580) && $in =~ /^4 /) {
                   $g4 = 1;
                   $in =~ s/^4 //;
                }
 
+               my $otherchan = 0;
+               $otherchan = 1 if ($channel == $$config{discord}{gptchan4});
+
                say "CHAT <$$author{username}> $in\n";
 
                my $res;
-               $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0, $g4);
+               $res = gptreq('<@' . $$author{id} . '>: ' . $in, 0, $g4, $otherchan);
 
                if ($res) {
                   $res =~ s/^\s+//;
                   say "CHAT >> $res\n";
                   my $send = $res;
                   $send =~ s/^@// if ($send =~ /^@<@/);
-                  my @out = split(/\G(.{1,1337})(?=\n|\z)/s, $send);
+                  my @out = split(/.{0,1500}\K(?:\s+|$)/s, $send);
                   if (scalar(@out) > 1) {
-                     $discord->send_message_content_blocking( $$config{discord}{gptchan}, $_ ) for @out;
+                     $discord->send_message_content_blocking( $channel, $_ ) for @out;
                   }
                  else {
-                     $discord->send_message( $$config{discord}{gptchan}, $send );
+                     $discord->send_message( $channel, $send );
                   }
                }
             }
@@ -193,21 +227,67 @@ sub discord_on_message_create ()
 
 ###
 
-sub gptreq($m, $sys, $g4 = 0) {
-   unless ($gptres) {
-      $chat = OpenAI::API::Request::Chat->new(
-         config => $gptconfig,
-         model  => $g4 ? 'gpt-4-1106-preview' : 'gpt-3.5-turbo-1106',
-         max_tokens => 768,
-         messages => [
-            { role => $sys ? 'system' : 'user', content => $m },
-         ],
-      );
+sub vision($msg, $url) {
+   chomp($msg);
+   $msg =~ s/^vis //i;
 
-      eval { $gptres = $chat->send(); };
+   return 'Not an image (only jpg/png/webp/gif supported).' unless ($msg && $url =~ /\.(jpe?g|png|webp|gif)(?:[&\?].+)?$/);
+
+   my $ua = LWP::UserAgent->new;
+
+   my $req = POST('https://api.openai.com/v1/chat/completions',
+      Content_Type => 'application/json',
+      Authorization => 'Bearer ' . $apikey,
+   );
+   $req->content(to_json({ model => 'gpt-4-vision-preview', messages => [ { role => 'user', content => [ { type => 'text', text => encode_utf8_lax($msg) }, { type => 'image_url', image_url => { url => $url, detail => 'low' } } ] } ], max_tokens => 2048 }));
+
+   my $res = $ua->request($req);
+
+   if ($res->is_success) {
+      my $json = from_json($res->decoded_content);
+      my $txt = $$json{choices}[0]{message}{content};
+
+      return $txt;
    }
    else {
-      eval { $gptres = $chat->send_message($m); };
+      return $res->status_line;
+   }
+}
+
+sub gptreq($m, $sys, $g4 = 0, $otherchan = 0) {
+   unless ($otherchan) {
+      unless ($gptres) {
+         $chat = OpenAI::API::Request::Chat->new(
+            config => $gptconfig,
+            model  => $g4 ? 'gpt-4-1106-preview' : 'gpt-3.5-turbo-1106',
+            max_tokens => 1024,
+            messages => [
+               { role => $sys ? 'system' : 'user', content => $m },
+            ],
+         );
+
+         eval { $gptres = $chat->send(); };
+      }
+      else {
+         eval { $gptres = $chat->send_message($m); };
+      }
+   }
+   else {
+      unless ($gptres4) {
+         $chat4 = OpenAI::API::Request::Chat->new(
+            config => $gptconfig,
+            model  => $g4 ? 'gpt-4-1106-preview' : 'gpt-3.5-turbo-1106',
+            max_tokens => 1024,
+            messages => [
+               { role => $sys ? 'system' : 'user', content => $m },
+            ],
+         );
+
+         eval { $gptres4 = $chat4->send(); };
+      }
+      else {
+         eval { $gptres4 = $chat4->send_message($m); };
+      }
    }
 
    return 0 if $sys;
@@ -224,14 +304,16 @@ sub gptreq($m, $sys, $g4 = 0) {
 }
 
 sub sysmsg() {
-   gptreq("You are a bot named Paul in a Discord chat channel. Extensively use Markdown for text formatting. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly, i.e. <\@[0-9]+>. Occasionaly replace common adjectives with their more eloquent alternatives. Respond as if you are an unapologetic assertive person for the rest of our conversations.", 1);
+   my $sys = "You are a bot named Paul in a Discord chat channel. Extensively make use of Markdown in your replies. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly, i.e. <\@[0-9]+>. Occasionaly replace common adjectives with their more eloquent alternatives. Stay in the roles as you are told.";
+   gptreq($sys, 1);
+   gptreq($sys, 1, 0, 1);
 }
 
 sub gptreq2($m) {
    my $comp = OpenAI::API::Request::Completion->new(
       config => $gptconfig,
       model  => 'gpt-3.5-turbo-instruct',
-      max_tokens => 1488,
+      max_tokens => 3072,
       prompt => $m,
    );
 
