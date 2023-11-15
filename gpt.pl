@@ -48,7 +48,7 @@ my $apikey = 'sk-XXX';
 my $gptconfig = OpenAI::API::Config->new(
    api_key  => $apikey,
    api_base => 'https://api.openai.com/v1',
-   timeout  => 60,
+   timeout  => 30,
    retry    => 3,
    sleep    => 2,
 );
@@ -153,7 +153,7 @@ sub discord_on_message_create ()
                   $res =~ s/^\s+//;
                   say "COMP >> $res\n";
                   my $send = '<@' . $$author{id} . '>: ' . $res;
-                  my @out = split(/.{0,1500}\K(?:\s+|$)/s, $send);
+                  my @out = split(/.{0,1800}\K(?:\s+|$)/s, $send);
                   if (scalar(@out) > 1) {
                      $discord->send_message_content_blocking( $channel, $_ ) for @out;
                   }
@@ -177,7 +177,7 @@ sub discord_on_message_create ()
                   $res =~ s/^\s+//;
                   say "VIS >> $res\n";
                   my $send = '<@' . $$author{id} . '>: ' . $res;
-                  my @out = split(/.{0,1500}\K(?:\s+|$)/s, $send);
+                  my @out = split(/.{0,1800}\K(?:\s+|$)/s, $send);
                   if (scalar(@out) > 1) {
                      $discord->send_message_content_blocking( $channel, $_ ) for @out;
                   }
@@ -209,7 +209,7 @@ sub discord_on_message_create ()
                   say "CHAT >> $res\n";
                   my $send = $res;
                   $send =~ s/^@// if ($send =~ /^@<@/);
-                  my @out = split(/.{0,1500}\K(?:\s+|$)/s, $send);
+                  my @out = split(/.{0,1800}\K(?:\s+|$)/s, $send);
                   if (scalar(@out) > 1) {
                      $discord->send_message_content_blocking( $channel, $_ ) for @out;
                   }
@@ -300,11 +300,16 @@ sub gptreq($m, $sys, $g4 = 0, $otherchan = 0) {
       return $err . ' GPT reset, new session initiated, previous context and role is now forgotten.';
    }
 
-   return $$gptres{choices}[0]{message}{content};
+   unless ($otherchan) {
+      return $$gptres{choices}[0]{message}{content};
+   }
+   else {
+      return $$gptres4{choices}[0]{message}{content};
+   }
 }
 
 sub sysmsg() {
-   my $sys = "You are a bot named Paul in a Discord chat channel. Extensively make use of Markdown in your replies. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly, i.e. <\@[0-9]+>. Occasionaly replace common adjectives with their more eloquent alternatives. Stay in the roles as you are told.";
+   my $sys = "You are a bot named Paul in a Discord chat channel. Extensively make use of Markdown in your replies. Subtly use Emojis when appropriate. The currently speaking user name will be in front of every input prompt, remember the name and reference the user accordingly, i.e. <\@[0-9]+>. Occasionally replace common adjectives with their more eloquent alternatives. Stay and forget the roles you are put into as you're told.";
    gptreq($sys, 1);
    gptreq($sys, 1, 0, 1);
 }
